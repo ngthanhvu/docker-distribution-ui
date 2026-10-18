@@ -1,0 +1,47 @@
+version: 0.1
+
+log:
+  level: info
+  accesslog:
+    disabled: true
+
+storage:
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+
+http:
+  addr: :5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+
+# Push/pull/delete events are POSTed to the UI backend, which records
+# them for the activity feed and last-pushed/last-pulled stats.
+# If you change the secret here, also change EVENT_SECRET in docker-compose.yml.
+notifications:
+  endpoints:
+    - name: registry-ui
+      url: http://backend:8080/api/events
+      timeout: 2s
+      threshold: 3
+      backoff: 1s
+      headers:
+        X-Registry-Event: [dev-registry-events-secret]
+
+# --- Optional: enable basic auth ---
+# Uncomment and create auth/htpasswd (see README) then uncomment the env vars
+# in docker-compose.yml to protect the registry.
+#
+# auth:
+#   htpasswd:
+#     realm: basic-realm
+#     path: /etc/docker/registry/auth/htpasswd
+
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
