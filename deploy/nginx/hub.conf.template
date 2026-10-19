@@ -1,0 +1,59 @@
+# Edge nginx cho Docker Registry UI — MỘT domain cho cả UI và Registry.
+# Domain lấy từ biến môi trường HUB_DOMAIN (đặt trong deploy/.env).
+# File này là template: image nginx tự thay ${HUB_DOMAIN} khi khởi động
+# (các biến runtime của nginx như $host không bị thay).
+#
+#   https://hub.example.com/v2/*   → registry  (docker login/push/pull)
+#   https://hub.example.com/*      → frontend  (Web UI; /api/ do frontend
+#                                             nginx bên trong tự proxy sang backend)
+
+# HTTP → HTTPS, kèm đường cho ACME challenge (gia hạn chứng chỉ).
+server {
+    listen 80;
+    server_name ${HUB_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${HUB_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${HUB_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${HUB_DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # ---- Docker Registry API v2 ----
+    # Layer image có thể rất lớn: không giới hạn kích thước, không buffer
+    # (upload chunked stream thẳng sang registry).
+    location /v2/ {
+        proxy_pass http://registry:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        client_max_body_size 0;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
+
+    # ---- Web UI ----
+    location / {
+        proxy_pass http://frontend:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

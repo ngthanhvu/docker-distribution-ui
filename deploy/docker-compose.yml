@@ -1,0 +1,116 @@
+# Production stack: Dùng image kéo từ Docker Hub (hoặc image có sẵn).
+# Thư mục này độc lập hoàn toàn, không cần source code.
+#
+# Cách chạy ở server mới:
+#   cp .env.example .env (hoặc sửa DOCKERHUB_USERNAME trong .env)
+#   docker compose up -d                    # chạy theo IP/port
+#   docker compose --profile domain up -d   # chạy theo domain (nginx + TLS)
+#
+# Một domain dùng cho cả Web UI và Registry:
+#   https://hub.example.com/      → Web UI
+#   https://hub.example.com/v2/   → Docker Registry API (docker push/pull)
+
+services:
+  # Docker Distribution (official registry) — lưu image.
+  registry:
+    image: registry:2.8.3
+    container_name: registry
+    restart: unless-stopped
+    ports:
+      # Muốn chỉ mở trên máy chủ (khi đã có domain): REGISTRY_PORT=127.0.0.1:5000
+      - "${REGISTRY_PORT:-5000}:5000"
+    volumes:
+      - ./registry/config.yml:/etc/docker/registry/config.yml:ro
+      # Bật basic auth: tạo registry/auth/htpasswd (xem README) rồi uncomment
+      # - ./registry/auth:/etc/docker/registry/auth:ro
+      - registry-data:/var/lib/registry
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/v2/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - registry-net
+
+  # Go backend — đọc API v2 của registry, serve dữ liệu cho UI.
+  backend:
+    image: ${BACKEND_IMAGE:-${DOCKERHUB_USERNAME:-yourusername}/registry-ui-backend:${TAG:-latest}}
+    container_name: registry-backend
+    restart: unless-stopped
+    environment:
+      LISTEN_ADDR: ":8080"
+      REGISTRY_URL: http://registry:5000
+      REGISTRY_PUBLIC_URL: ${REGISTRY_PUBLIC_URL:-http://localhost:5000}
+      CACHE_TTL: ${CACHE_TTL:-30s}
+      DATA_DIR: /data
+      EVENT_SECRET: ${EVENT_SECRET:-dev-registry-events-secret}
+      REGISTRY_STORAGE_DIR: /registry-data
+      # Bật basic auth cho registry thì uncomment (khớp user/pass trong htpasswd)
+      # REGISTRY_USERNAME: ${REGISTRY_USERNAME:-}
+      # REGISTRY_PASSWORD: ${REGISTRY_PASSWORD:-}
+    volumes:
+      - backend-data:/data
+      - registry-data:/registry-data:ro
+    depends_on:
+      registry:
+        condition: service_healthy
+    networks:
+      - registry-net
+
+  # Frontend — static build (nginx) + proxy /api/ sang backend.
+  frontend:
+    image: ${FRONTEND_IMAGE:-${DOCKERHUB_USERNAME:-yourusername}/registry-ui-frontend:${TAG:-latest}}
+    container_name: registry-frontend
+    restart: unless-stopped
+    ports:
+      # Khi đã có domain: UI_PORT=127.0.0.1:8080 (vào qua domain thay vì port)
+      - "${UI_PORT:-8080}:80"
+    depends_on:
+      - backend
+    networks:
+      - registry-net
+
+  # Edge nginx — chỉ chạy khi bật profile "domain" (cần .env có HUB_DOMAIN):
+  #   docker compose --profile domain up -d
+  # Route: /v2/ → registry, còn lại → frontend. TLS từ Let's Encrypt (xem certbot).
+  # LƯU Ý: service này cần port 80/443 trống trên host. VPS đã có reverse proxy
+  # khác giữ 80/443 thì KHÔNG dùng service này — gắn domain vào proxy đó bằng
+  # file nginx/existing-proxy.conf (xem README).
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: registry-nginx
+    restart: unless-stopped
+    profiles: ["domain"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      HUB_DOMAIN: ${HUB_DOMAIN:-}
+    volumes:
+      - ./nginx/hub.conf.template:/etc/nginx/templates/hub.conf.template:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - registry
+    networks:
+      - registry-net
+
+  # Certbot — helper xin/gia hạn chứng chỉ Let's Encrypt (không chạy thường trực):
+  #   make cert    # xin cert lần đầu (chạy TRƯỚC khi up nginx)
+  #   make renew   # gia hạn + reload nginx (chạy định kỳ qua cron)
+  certbot:
+    image: certbot/certbot
+    profiles: ["tls"]
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+
+volumes:
+  registry-data:
+  backend-data:
+  letsencrypt:
+  certbot-www:
+
+networks:
+  registry-net:

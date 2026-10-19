@@ -1,0 +1,49 @@
+version: 0.1
+
+log:
+  level: info
+  accesslog:
+    disabled: true
+
+storage:
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+
+http:
+  addr: :5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+
+# Push/pull/delete events được POST về backend để hiển thị activity feed.
+# Secret dưới đây phải khớp EVENT_SECRET trong deploy/.env
+# (đổi thì đổi cả hai nơi).
+notifications:
+  endpoints:
+    - name: registry-ui
+      url: http://backend:8080/api/events
+      timeout: 2s
+      threshold: 3
+      backoff: 1s
+      headers:
+        X-Registry-Event: [dev-registry-events-secret]
+
+# --- Optional: basic auth cho registry ---
+# Uncomment (đổi cả volumes + env trong docker-compose.yml, xem README):
+#   mkdir -p registry/auth
+#   docker run --rm --entrypoint htpasswd httpd:2.4-alpine \
+#     -Bbn admin 'MatKhauManh' > registry/auth/htpasswd
+#
+# auth:
+#   htpasswd:
+#     realm: basic-realm
+#     path: /etc/docker/registry/auth/htpasswd
+
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3

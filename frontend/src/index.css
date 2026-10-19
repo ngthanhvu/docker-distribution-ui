@@ -10,6 +10,11 @@
     Menlo, Consolas, monospace;
   --font-sans: ui-monospace, 'JetBrains Mono', 'Fira Code', 'SFMono-Regular',
     Menlo, Consolas, monospace;
+
+  --color-black: #0f1115;
+  --color-zinc-950: #16181f;
+  --color-zinc-900: #20222a;
+  --color-zinc-800: #2e313b;
 }
 
 @layer base {
@@ -43,8 +48,8 @@
   }
 
   ::selection {
-    background: #ffffff;
-    color: #000000;
+    background: var(--color-zinc-700);
+    color: var(--color-zinc-100);
   }
 }
 
@@ -55,7 +60,7 @@
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-zinc-800);
-  border: 2px solid #000000;
+  border: 2px solid var(--color-black);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -64,7 +69,7 @@
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-zinc-800) #000000;
+  scrollbar-color: var(--color-zinc-800) var(--color-black);
 }
 
 /* ---------- skeletons ---------- */
