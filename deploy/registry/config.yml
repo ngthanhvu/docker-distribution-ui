@@ -15,6 +15,7 @@ storage:
 
 http:
   addr: :5000
+  relativeurls: true
   headers:
     X-Content-Type-Options: [nosniff]
 
