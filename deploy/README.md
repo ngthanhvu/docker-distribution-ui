@@ -8,18 +8,21 @@ Thư mục `deploy/` này được thiết kế để **độc lập hoàn toàn
 
 ```
 deploy/
-├── docker-compose.yml       # Khai báo stack: registry, backend, frontend (kèm nginx nếu dùng domain)
+├── docker-compose.yml       # Stack: registry, backend, frontend
+├── nginx.conf               # [QUAN TRỌNG] Nginx tự động điều hướng /v2/ và /api/ và Web UI
 ├── .env.example             # Mẫu biến môi trường
-├── .env                     # File cấu hình thực tế (chứa DOCKERHUB_USERNAME, PORT, ...)
+├── .env                     # File cấu hình thực tế (DOCKERHUB_USERNAME, PORT, ...)
 ├── registry/
 │   └── config.yml           # Cấu hình Docker Registry v2 (storage, webhook event về UI)
-├── nginx/                   # (Tùy chọn) Cấu hình reverse proxy nếu dùng Domain + SSL
-│   ├── hub.conf.template
-│   └── existing-proxy.conf
 └── README.md                # Hướng dẫn này
 ```
 
-Thư mục này **hoàn toàn độc lập** với mã nguồn (không cần code Go, không cần React).
+Thư mục này **hoàn toàn độc lập** với mã nguồn (không cần code Go, không cần React). File `nginx.conf` được mount sẵn vào stack để tự động chia luồng:
+- `/v2/*` → chuyển tiếp vào Docker Registry
+- `/api/*` → chuyển tiếp vào Go Backend
+- `/*` → phục vụ Web UI React
+
+Do đó trên máy chủ (dù dùng 1Panel, Nginx host, hay Caddy), bạn **chỉ cần trỏ domain vào duy nhất 1 cổng `8080`**, không cần cấu hình phức tạp gì thêm!
 
 ---
 
