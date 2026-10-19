@@ -1,3 +1,5 @@
+import TermButton from './TermButton'
+
 export default function ConfirmDialog({
   title,
   message,
@@ -16,17 +18,27 @@ export default function ConfirmDialog({
   onClose: () => void
 }) {
   return (
-    <div className="modal-overlay" onClick={busy ? undefined : onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
-        <h3>{title}</h3>
-        <p>{message}</p>
-        <div className="modal-actions">
-          <button type="button" className="btn" onClick={onClose} disabled={busy}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-5"
+      onClick={busy ? undefined : onClose}
+    >
+      <div
+        className="w-full max-w-md border border-zinc-800 bg-zinc-950 p-6"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal
+      >
+        <h3 className="m-0 mb-2.5 text-base font-bold text-white">{title}</h3>
+        <p className="m-0 mb-6 break-words text-[12.5px] leading-relaxed text-zinc-500">
+          {message}
+        </p>
+        <div className="flex justify-end gap-2">
+          <TermButton onClick={onClose} disabled={busy}>
             Cancel
-          </button>
-          <button type="button" className="btn btn-danger" onClick={onConfirm} disabled={busy}>
+          </TermButton>
+          <TermButton danger onClick={onConfirm} disabled={busy}>
             {busy ? busyLabel : confirmLabel}
-          </button>
+          </TermButton>
         </div>
       </div>
     </div>

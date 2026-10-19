@@ -1,0 +1,61 @@
+services:
+  # Docker Distribution (official registry)
+  registry:
+    image: registry:2.8.3
+    container_name: registry
+    restart: unless-stopped
+    ports:
+      - "${REGISTRY_PORT:-5000}:5000"
+    volumes:
+      - ./registry/config.yml:/etc/docker/registry/config.yml:ro
+      - registry-data:/var/lib/registry
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/v2/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - registry-net
+
+  # Go backend
+  backend:
+    build: ./server
+    container_name: registry-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8081}:8080"
+    environment:
+      LISTEN_ADDR: ":8080"
+      REGISTRY_URL: http://registry:5000
+      REGISTRY_PUBLIC_URL: ${REGISTRY_PUBLIC_URL:-http://localhost:5000}
+      CACHE_TTL: ${CACHE_TTL:-30s}
+      DATA_DIR: /data
+      EVENT_SECRET: ${EVENT_SECRET:-dev-registry-events-secret}
+      REGISTRY_STORAGE_DIR: /registry-data
+    volumes:
+      - backend-data:/data
+      - registry-data:/registry-data:ro
+    depends_on:
+      registry:
+        condition: service_healthy
+    networks:
+      - registry-net
+
+  # Frontend (Production): built static bundle served by Nginx
+  frontend:
+    build: ./frontend
+    container_name: registry-frontend
+    restart: unless-stopped
+    ports:
+      - "${UI_PORT:-8080}:80"
+    depends_on:
+      - backend
+    networks:
+      - registry-net
+
+volumes:
+  registry-data:
+  backend-data:
+
+networks:
+  registry-net:

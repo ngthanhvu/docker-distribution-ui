@@ -91,10 +91,10 @@ export const api = {
         jsonInit('POST', { username, password }),
         { ignoreAuth: true },
       ),
-    login: (username: string, password: string) =>
+    login: (username: string, password: string, remember: boolean) =>
       request<{ ok: boolean; username: string }>(
         '/api/auth/login',
-        jsonInit('POST', { username, password }),
+        jsonInit('POST', { username, password, remember }),
         { ignoreAuth: true },
       ),
     logout: () =>

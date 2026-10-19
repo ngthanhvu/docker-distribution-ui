@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { CheckIcon, CopyIcon } from './icons'
 
 export default function CopyButton({
   text,
@@ -30,12 +29,14 @@ export default function CopyButton({
   return (
     <button
       type="button"
-      className={`btn-icon ${copied ? 'copied' : ''} ${className ?? ''}`}
+      className={`inline-flex cursor-pointer shrink-0 items-center px-1.5 py-0.5 text-[11px] uppercase tracking-[0.08em] transition-colors ${
+        copied ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-100'
+      } ${className ?? ''}`}
       onClick={copy}
       title={copied ? 'Copied!' : title}
       aria-label={title}
     >
-      {copied ? <CheckIcon /> : <CopyIcon />}
+      {copied ? '[ OK ]' : '[ COPY ]'}
     </button>
   )
 }

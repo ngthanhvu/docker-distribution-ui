@@ -1,18 +1,33 @@
 import type { ReactNode } from 'react'
 import type { PlatformSummary, TagInfo } from '../types'
 
+const variantClasses: Record<string, string> = {
+  tag: 'border-sky-500/40 bg-sky-500/10 text-sky-300 font-medium',
+  os: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-medium',
+  arch: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-medium',
+  index: 'border-purple-500/40 bg-purple-500/15 text-purple-300 font-medium',
+  image: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300 font-medium',
+  dim: 'border-zinc-800 bg-zinc-950 text-zinc-500',
+  danger: 'border-red-500/40 bg-red-500/10 text-red-400 font-medium',
+}
+
 export function Badge({
   children,
   variant,
   title,
 }: {
   children: ReactNode
-  variant?: 'os' | 'arch' | 'index' | 'image' | 'dim' | 'danger'
+  variant?: 'tag' | 'os' | 'arch' | 'index' | 'image' | 'dim' | 'danger'
   title?: string
 }) {
   return (
-    <span className={`badge ${variant ? `b-${variant}` : ''}`} title={title}>
-      {children}
+    <span
+      className={`inline-flex items-center border px-1.5 py-px text-[11px] leading-5 transition-colors ${
+        variant ? variantClasses[variant] : variantClasses.tag
+      }`}
+      title={title}
+    >
+      [{children}]
     </span>
   )
 }
@@ -36,7 +51,11 @@ export function PlatformBadges({ p }: { p: PlatformSummary }) {
   if (p.variant) parts.push(p.variant)
   if (parts.length === 0) return null
   const label = parts.join('/')
-  return <Badge variant="os" title={label}>{label}</Badge>
+  return (
+    <Badge variant="os" title={label}>
+      {label}
+    </Badge>
+  )
 }
 
 export function TagPlatformCell({ tag }: { tag: TagInfo }) {
@@ -44,7 +63,7 @@ export function TagPlatformCell({ tag }: { tag: TagInfo }) {
     const shown = tag.platforms.slice(0, 3)
     const rest = tag.platforms.length - shown.length
     return (
-      <span className="badges">
+      <span className="inline-flex flex-wrap items-center gap-1.5">
         {shown.map((p, i) => (
           <PlatformBadges key={i} p={p} />
         ))}

@@ -71,9 +71,9 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 			return
 		}
 		if c, err := r.Cookie(sessionCookie); err == nil {
-			if _, extended, ok := s.auth.Validate(c.Value); ok {
+			if _, cookieTTL, extended, ok := s.auth.Validate(c.Value); ok {
 				if extended {
-					setSessionCookie(w, c.Value)
+					setSessionCookie(w, c.Value, cookieTTL)
 				}
 				next.ServeHTTP(w, r)
 				return

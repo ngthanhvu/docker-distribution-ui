@@ -22,8 +22,9 @@ const (
 	saltSize   = 16
 	keyLen     = 32
 	sessionTTL = 7 * 24 * time.Hour
-	maxFails   = 10
-	failWindow = 10 * time.Minute
+	rememberTTL = 30 * 24 * time.Hour // "remember me" sessions
+	maxFails    = 10
+	failWindow  = 10 * time.Minute
 )
 
 var (
@@ -48,6 +49,10 @@ type record struct {
 type session struct {
 	username string
 	expires  time.Time
+	ttl      time.Duration // full lifetime; also drives the sliding window
+	// cookieTTL is the Max-Age for the session cookie. Zero means a
+	// browser-session cookie that disappears when the browser closes.
+	cookieTTL time.Duration
 }
 
 type failEntry struct {
@@ -112,29 +117,29 @@ func ValidPassword(p string) bool { return len(p) >= 8 && len(p) <= 128 }
 
 // Setup creates the admin account (only allowed on first run) and returns
 // a session token so the user is logged in immediately.
-func (s *Store) Setup(username, password string) (string, error) {
+func (s *Store) Setup(username, password string) (string, time.Duration, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.disabled {
-		return "", ErrInitialized
+		return "", 0, ErrInitialized
 	}
 	if s.rec != nil {
-		return "", ErrInitialized
+		return "", 0, ErrInitialized
 	}
 	if !ValidUsername(username) {
-		return "", fmt.Errorf("%w: username must be 3-32 characters (letters, digits, . _ -)", ErrInvalid)
+		return "", 0, fmt.Errorf("%w: username must be 3-32 characters (letters, digits, . _ -)", ErrInvalid)
 	}
 	if !ValidPassword(password) {
-		return "", fmt.Errorf("%w: password must be 8-128 characters", ErrInvalid)
+		return "", 0, fmt.Errorf("%w: password must be 8-128 characters", ErrInvalid)
 	}
 
 	salt := make([]byte, saltSize)
 	if _, err := rand.Read(salt); err != nil {
-		return "", err
+		return "", 0, err
 	}
 	key, err := pbkdf2.Key(sha256.New, password, salt, iterations, keyLen)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	s.rec = &record{
@@ -147,69 +152,74 @@ func (s *Store) Setup(username, password string) (string, error) {
 	}
 	if err := s.saveLocked(); err != nil {
 		s.rec = nil
-		return "", err
+		return "", 0, err
 	}
-	return s.newSessionLocked(username), nil
+	return s.newSessionLocked(username, sessionTTL, sessionTTL), sessionTTL, nil
 }
 
-// Login verifies credentials and returns a session token.
-func (s *Store) Login(username, password, ip string) (string, error) {
+// Login verifies credentials and returns a session token plus the cookie
+// Max-Age that matches the requested persistence (0 = browser session).
+func (s *Store) Login(username, password, ip string, remember bool) (string, time.Duration, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.disabled || s.rec == nil {
-		return "", ErrNotInitialized
+		return "", 0, ErrNotInitialized
 	}
 	if s.blockedLocked(ip) {
-		return "", ErrBlocked
+		return "", 0, ErrBlocked
 	}
 
 	salt, err := hex.DecodeString(s.rec.Salt)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	want, err := hex.DecodeString(s.rec.Hash)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	key, err := pbkdf2.Key(sha256.New, password, salt, s.rec.Iterations, keyLen)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	userOK := subtle.ConstantTimeCompare([]byte(strings.TrimSpace(username)), []byte(s.rec.Username)) == 1
 	passOK := subtle.ConstantTimeCompare(key, want) == 1
 	if !userOK || !passOK {
 		s.recordFailLocked(ip)
-		return "", ErrInvalid
+		return "", 0, ErrInvalid
 	}
 	delete(s.failures, ip)
-	return s.newSessionLocked(s.rec.Username), nil
+	if remember {
+		return s.newSessionLocked(s.rec.Username, rememberTTL, rememberTTL), rememberTTL, nil
+	}
+	return s.newSessionLocked(s.rec.Username, sessionTTL, 0), 0, nil
 }
 
-// Validate checks a session token. It returns the username and whether the
-// session expiry was extended (sliding window).
-func (s *Store) Validate(token string) (username string, extended bool, ok bool) {
+// Validate checks a session token. It returns the username, the cookie
+// Max-Age that should be (re-)applied when the session expiry was extended
+// (sliding window), and whether the token is valid.
+func (s *Store) Validate(token string) (username string, cookieTTL time.Duration, extended bool, ok bool) {
 	if token == "" {
-		return "", false, false
+		return "", 0, false, false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.disabled {
-		return "", false, true
+		return "", 0, false, true
 	}
 	sess, found := s.sessions[token]
 	if !found || time.Now().After(sess.expires) {
 		if found {
 			delete(s.sessions, token)
 		}
-		return "", false, false
+		return "", 0, false, false
 	}
-	if time.Until(sess.expires) < sessionTTL/4 {
-		sess.expires = time.Now().Add(sessionTTL)
+	if time.Until(sess.expires) < sess.ttl/4 {
+		sess.expires = time.Now().Add(sess.ttl)
 		extended = true
 	}
 	s.sweepLocked()
-	return sess.username, extended, true
+	return sess.username, sess.cookieTTL, extended, true
 }
 
 // Logout removes a session.
@@ -222,13 +232,18 @@ func (s *Store) Logout(token string) {
 	s.mu.Unlock()
 }
 
-func (s *Store) newSessionLocked(username string) string {
+func (s *Store) newSessionLocked(username string, ttl, cookieTTL time.Duration) string {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
 		panic("auth: crypto/rand unavailable: " + err.Error())
 	}
 	token := hex.EncodeToString(buf)
-	s.sessions[token] = &session{username: username, expires: time.Now().Add(sessionTTL)}
+	s.sessions[token] = &session{
+		username:  username,
+		expires:   time.Now().Add(ttl),
+		ttl:       ttl,
+		cookieTTL: cookieTTL,
+	}
 	return token
 }
 

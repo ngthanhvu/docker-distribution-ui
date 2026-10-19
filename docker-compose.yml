@@ -23,19 +23,16 @@ services:
     build: ./server
     container_name: registry-backend
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8081}:8080"
     environment:
       LISTEN_ADDR: ":8080"
       REGISTRY_URL: http://registry:5000
       REGISTRY_PUBLIC_URL: ${REGISTRY_PUBLIC_URL:-http://localhost:5000}
-      # REGISTRY_USERNAME: admin
-      # REGISTRY_PASSWORD: secret
       CACHE_TTL: ${CACHE_TTL:-30s}
       DATA_DIR: /data
-      # Must match the X-Registry-Event header in registry/config.yml
       EVENT_SECRET: ${EVENT_SECRET:-dev-registry-events-secret}
-      # Registry storage mounted below (read-only) for real disk usage stats
       REGISTRY_STORAGE_DIR: /registry-data
-      # AUTH_DISABLED: "true"   # uncomment to disable UI authentication entirely
     volumes:
       - backend-data:/data
       - registry-data:/registry-data:ro
@@ -45,13 +42,20 @@ services:
     networks:
       - registry-net
 
-  # React frontend (Vite build) served by nginx, proxying /api to the backend.
+  # Frontend (Dev): Vite dev server with HMR on http://localhost:5173
   frontend:
-    build: ./frontend
+    image: node:22-alpine
     container_name: registry-frontend
     restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    environment:
+      BACKEND_PROXY_TARGET: http://backend:8080
     ports:
-      - "${UI_PORT:-8080}:80"
+      - "${UI_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
     depends_on:
       - backend
     networks:
@@ -60,6 +64,7 @@ services:
 volumes:
   registry-data:
   backend-data:
+  frontend-node-modules:
 
 networks:
   registry-net:

@@ -4,34 +4,28 @@ import { api, useConfig } from '../api'
 import type { ManifestInfo } from '../types'
 import { formatDate, formatSize, shortDigest, timeAgo } from '../format'
 import { KindBadge, PlatformBadges } from '../components/Badges'
-import CodeBlock from '../components/CodeBlock'
 import ConfigPanel from '../components/ConfigPanel'
 import ConfirmDialog from '../components/ConfirmDialog'
 import CopyButton from '../components/CopyButton'
 import JsonView from '../components/JsonView'
 import Layers from '../components/Layers'
 import StatCard from '../components/StatCard'
-import {
-  ChevronRight,
-  ClockIcon,
-  CpuIcon,
-  DiskIcon,
-  LayersIcon,
-  RefreshIcon,
-  TrashIcon,
-} from '../components/icons'
+import TermButton from '../components/TermButton'
+import { ClockIcon, CpuIcon, DiskIcon, LayersIcon } from '../components/icons'
+
+type Tab = 'layers' | 'config' | 'raw'
+
+const th =
+  'border-b border-zinc-800 px-4 py-2.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-zinc-600'
 
 function repoPath(name: string): string {
-  return name
-    .split('/')
-    .map(encodeURIComponent)
-    .join('/')
+  return encodeURIComponent(name)
 }
 
 export default function TagDetail() {
   const { name, ref } = useParams()
-  const repo = decodeURIComponent(name ?? '')
-  const reference = decodeURIComponent(ref ?? '')
+  const repo = name ?? ''
+  const reference = ref ?? ''
   const navigate = useNavigate()
   const cfg = useConfig()
 
@@ -39,6 +33,7 @@ export default function TagDetail() {
   const [error, setError] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [tab, setTab] = useState<Tab>('layers')
 
   useEffect(() => {
     setInfo(null)
@@ -63,72 +58,80 @@ export default function TagDetail() {
 
   if (error) {
     return (
-      <>
-        <nav className="breadcrumbs">
-          <Link to="/">Repositories</Link>
-          <span>/</span>
-          <Link to={`/repo/${repoPath(repo)}`} className="mono">
-            {repo}
-          </Link>
-          <span>/</span>
-          <span className="mono current">{reference}</span>
-        </nav>
-        <div className="error-box mt">Failed to load manifest: {error}</div>
-      </>
+      <div>
+        <div className="mb-5 border border-red-500/40 bg-red-500/10 px-4 py-3 text-[12.5px] text-red-400">
+          Failed to load manifest: {error}
+        </div>
+        <Link
+          to={`/repo/${repoPath(repo)}`}
+          className="inline-flex items-center px-2 py-1.5 text-[12px] uppercase tracking-[0.08em] text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
+        >
+          [ BACK ]
+        </Link>
+      </div>
     )
   }
 
   const publicUrl = cfg?.registryPublicUrl ?? 'localhost:5000'
   const single = info && info.kind !== 'index' ? info.platforms[0] : undefined
   const refLabel = reference.startsWith('sha256:') ? shortDigest(reference) : reference
+  const pullCmd = `docker pull ${publicUrl}/${repo}:${
+    reference.startsWith('sha256:') ? '<tag>' : reference
+  }`
+
+  const tabs: Array<{ id: Tab; label: string; disabled?: boolean }> = [
+    { id: 'layers', label: info?.kind === 'index' ? 'Platforms' : 'Layers' },
+    { id: 'config', label: 'Config', disabled: !single?.config },
+    { id: 'raw', label: 'Raw manifest', disabled: !info },
+  ]
 
   return (
     <>
-      <nav className="breadcrumbs">
-        <Link to="/">Repositories</Link>
-        <span>/</span>
-        <Link to={`/repo/${repoPath(repo)}`} className="mono">
-          {repo}
-        </Link>
-        <span>/</span>
-        <span className="mono current">{refLabel}</span>
-      </nav>
-
-      <div className="page-head">
-        <div>
-          <h1 className="mono repo-title">
-            {repo}<span className="tag-sep">:</span>
-            <span className="accent">{refLabel}</span>
-          </h1>
-          <p className="muted">
-            {info ? `${info.mediaType}` : 'Loading…'}
-          </p>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            to={`/repo/${repoPath(repo)}`}
+            className="inline-flex shrink-0 items-center px-2 py-1.5 text-[12px] uppercase tracking-[0.08em] text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
+            title="Back to repository"
+          >
+            [ BACK ]
+          </Link>
+          <div className="min-w-0">
+            <h1 className="m-0 break-all text-xl font-bold tracking-tight text-white">
+              {repo}
+              <span className="text-zinc-600">:</span>
+              <span className="text-zinc-100">{refLabel}</span>
+            </h1>
+            <p className="mt-0.5 truncate text-[11px] uppercase tracking-[0.08em] text-zinc-500">
+              {info ? info.mediaType : 'LOADING…'}
+            </p>
+          </div>
         </div>
-        <div className="page-actions">
-          <button
-            type="button"
-            className="btn"
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex min-w-0 items-center gap-2 border border-zinc-800 bg-black py-1.5 pl-3 pr-1.5">
+            <span className="text-[12px] text-zinc-600">$</span>
+            <code className="max-w-70 truncate text-[12.5px] text-zinc-100">
+              {pullCmd}
+            </code>
+            <CopyButton text={pullCmd} title="Copy pull command" />
+          </span>
+          <TermButton
             onClick={() => {
               setInfo(null)
               api.manifest(repo, reference).then(setInfo).catch((e: Error) => setError(e.message))
             }}
             disabled={!info}
           >
-            <RefreshIcon /> Refresh
-          </button>
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={() => setConfirming(true)}
-            disabled={!info}
-          >
-            <TrashIcon /> Delete
-          </button>
+            Refresh
+          </TermButton>
+          <TermButton danger onClick={() => setConfirming(true)} disabled={!info}>
+            Delete
+          </TermButton>
         </div>
       </div>
 
       {!info && (
-        <div className="panel">
+        <div className="border border-zinc-800 bg-zinc-950 py-2">
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className="skeleton-row" />
           ))}
@@ -137,26 +140,32 @@ export default function TagDetail() {
 
       {info && (
         <>
-          <div className="stats">
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              icon={<CpuIcon />}
+              icon={<CpuIcon className="text-purple-400" />}
               value={<KindBadge kind={info.kind} />}
               label="Type"
             />
             <StatCard
-              icon={<DiskIcon />}
+              icon={<DiskIcon className="text-emerald-400" />}
               value={formatSize(info.totalSize)}
               label="Total size"
               sub={info.kind === 'index' ? 'all platforms' : undefined}
             />
             <StatCard
-              icon={<ClockIcon />}
+              icon={<ClockIcon className="text-sky-400" />}
               value={timeAgo(info.created)}
               label="Created"
               title={info.created ? formatDate(info.created) : undefined}
             />
             <StatCard
-              icon={info.kind === 'index' ? <CpuIcon /> : <LayersIcon />}
+              icon={
+                info.kind === 'index' ? (
+                  <CpuIcon className="text-amber-400" />
+                ) : (
+                  <LayersIcon className="text-amber-400" />
+                )
+              }
               value={info.platforms.length}
               label={info.kind === 'index' ? 'Platforms' : 'Layers'}
               sub={
@@ -167,98 +176,108 @@ export default function TagDetail() {
             />
           </div>
 
-          <div className="panel">
-            <div className="digest-line">
-              <span className="kv-key">Digest</span>
-              <code className="mono digest-full">{info.digest}</code>
-              <CopyButton text={info.digest} title="Copy digest" />
-            </div>
+          <div className="mb-5 flex flex-wrap items-center gap-2 border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <span className="text-[10.5px] uppercase tracking-[0.12em] text-zinc-500">
+              DIGEST
+            </span>
+            <code className="min-w-0 break-all border border-zinc-800 bg-black px-2 py-1 text-[12.5px] text-zinc-300">
+              {info.digest}
+            </code>
+            <CopyButton text={info.digest} title="Copy digest" />
           </div>
 
-          {info.kind === 'index' ? (
-            <div className="panel table-panel">
-              <h3>Platforms</h3>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Platform</th>
-                    <th>Digest</th>
-                    <th>Size</th>
-                    <th>Created</th>
-                    <th aria-label="actions" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {info.platforms.map((p) => (
-                    <tr key={p.digest} className="row-link">
-                      <td>
-                        <Link
-                          to={`/repo/${repoPath(repo)}/${encodeURIComponent(p.digest)}`}
-                          className="badges"
-                        >
-                          <PlatformBadges p={p} />
-                          <ChevronRight />
-                        </Link>
-                      </td>
-                      <td>
-                        <span className="mono digest" title={p.digest}>
-                          {shortDigest(p.digest)}
-                        </span>
-                        <CopyButton text={p.digest} title="Copy digest" />
-                      </td>
-                      <td className="mono">{formatSize(p.totalSize)}</td>
-                      <td>
-                        {p.created ? (
-                          <span title={formatDate(p.created)}>{timeAgo(p.created)}</span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="chevron">
-                        <Link
-                          to={`/repo/${repoPath(repo)}/${encodeURIComponent(p.digest)}`}
-                          aria-label="open platform manifest"
-                        >
-                          <ChevronRight />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="overflow-hidden border border-zinc-800 bg-zinc-950">
+            <div className="flex border-b border-zinc-800">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  disabled={t.disabled}
+                  onClick={() => setTab(t.id)}
+                  className={`px-4 py-2.5 text-[12px] uppercase tracking-[0.08em] transition-colors disabled:pointer-events-none disabled:opacity-40 ${
+                    tab === t.id
+                      ? 'bg-zinc-100 font-bold text-black'
+                      : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
-          ) : single ? (
-            <>
-              <div className="grid-2">
-                <div className="panel">
-                  <h3>Layers &amp; history</h3>
+            <div className="overflow-x-auto p-4">
+              {tab === 'layers' &&
+                (info.kind === 'index' ? (
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className={`${th} text-left`}>Platform</th>
+                        <th className={`${th} text-left`}>Digest</th>
+                        <th className={`${th} text-left`}>Size</th>
+                        <th className={`${th} text-left`}>Created</th>
+                        <th className={`${th} text-right`}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {info.platforms.map((p) => (
+                        <tr
+                          key={p.digest}
+                          className="border-b border-zinc-900 transition-colors last:border-b-0 hover:bg-zinc-900"
+                        >
+                          <td className="px-4 py-3 align-middle">
+                            <Link
+                              to={`/repo/${repoPath(repo)}/${encodeURIComponent(p.digest)}`}
+                              className="inline-flex flex-wrap items-center gap-1.5"
+                            >
+                              <PlatformBadges p={p} />
+                            </Link>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 align-middle">
+                            <span className="mr-1 text-[12px] text-zinc-500" title={p.digest}>
+                              {shortDigest(p.digest)}
+                            </span>
+                            <CopyButton text={p.digest} title="Copy digest" />
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] text-zinc-300">
+                            {formatSize(p.totalSize)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] text-zinc-500">
+                            {p.created ? (
+                              <span title={formatDate(p.created)}>{timeAgo(p.created)}</span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right align-middle">
+                            <Link
+                              to={`/repo/${repoPath(repo)}/${encodeURIComponent(p.digest)}`}
+                              aria-label="open platform manifest"
+                              className="inline-flex items-center px-2 py-1.5 text-[12px] uppercase tracking-[0.08em] text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
+                            >
+                              [ OPEN ]
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : single ? (
                   <Layers layers={single.layers ?? []} />
-                </div>
-                <div className="side">
-                  {single.config && (
-                    <div className="panel">
-                      <h3>Image configuration</h3>
-                      <ConfigPanel config={single.config} />
-                    </div>
-                  )}
-                  <div className="panel">
-                    <h3>Pull</h3>
-                    <CodeBlock
-                      lines={[`docker pull ${publicUrl}/${repo}:${reference.startsWith('sha256:') ? `<tag>` : reference}`]}
-                    />
-                  </div>
-                </div>
-              </div>
-              <details className="panel raw-manifest">
-                <summary>Raw manifest JSON</summary>
-                <JsonView data={info.raw} />
-              </details>
-            </>
-          ) : (
-            <div className="panel">
-              <p className="muted">No platform details available.</p>
+                ) : (
+                  <p className="m-0 text-[12.5px] text-zinc-600">
+                    No platform details available.
+                  </p>
+                ))}
+              {tab === 'config' &&
+                (single?.config ? (
+                  <ConfigPanel config={single.config} />
+                ) : (
+                  <p className="m-0 text-[12.5px] text-zinc-600">
+                    No image configuration available.
+                  </p>
+                ))}
+              {tab === 'raw' && <JsonView data={info.raw} />}
             </div>
-          )}
+          </div>
         </>
       )}
 

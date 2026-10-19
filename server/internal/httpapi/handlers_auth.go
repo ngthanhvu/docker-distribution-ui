@@ -30,7 +30,7 @@ func (s *Server) handleAuthSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := s.auth.Setup(body.Username, body.Password)
+	token, cookieTTL, err := s.auth.Setup(body.Username, body.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInitialized):
@@ -42,7 +42,7 @@ func (s *Server) handleAuthSetup(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	setSessionCookie(w, token)
+	setSessionCookie(w, token, cookieTTL)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "username": body.Username})
 }
 
@@ -50,12 +50,13 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		Remember bool   `json:"remember"`
 	}
 	if !parseAuthBody(w, r, &body) {
 		return
 	}
 
-	token, err := s.auth.Login(body.Username, body.Password, clientIP(r))
+	token, cookieTTL, err := s.auth.Login(body.Username, body.Password, clientIP(r), body.Remember)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrBlocked):
@@ -67,7 +68,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	setSessionCookie(w, token)
+	setSessionCookie(w, token, cookieTTL)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "username": body.Username})
 }
 
@@ -94,22 +95,28 @@ func (s *Server) currentUser(r *http.Request) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	username, _, ok := s.auth.Validate(c.Value)
+	username, _, _, ok := s.auth.Validate(c.Value)
 	if !ok {
 		return "", false
 	}
 	return username, true
 }
 
-func setSessionCookie(w http.ResponseWriter, token string) {
-	http.SetCookie(w, &http.Cookie{
+// setSessionCookie writes the session cookie. A ttl of zero produces a
+// browser-session cookie (gone when the browser closes); a positive ttl
+// produces a persistent cookie with that Max-Age.
+func setSessionCookie(w http.ResponseWriter, token string, ttl time.Duration) {
+	c := &http.Cookie{
 		Name:     sessionCookie,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int((7 * 24 * time.Hour).Seconds()),
-	})
+	}
+	if ttl > 0 {
+		c.MaxAge = int(ttl.Seconds())
+	}
+	http.SetCookie(w, c)
 }
 
 func parseAuthBody(w http.ResponseWriter, r *http.Request, v any) bool {

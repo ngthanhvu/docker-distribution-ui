@@ -44,8 +44,10 @@ export default function App() {
 
   if (gate === 'loading') {
     return (
-      <div className="auth-screen">
-        <div className="spinner" />
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <span className="animate-pulse text-[13px] uppercase tracking-[0.12em] text-zinc-500">
+          Loading…
+        </span>
       </div>
     )
   }
