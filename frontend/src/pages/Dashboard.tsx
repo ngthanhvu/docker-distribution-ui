@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, pool, useConfig } from '../api'
 import type { ActivityEvent, CatalogEntry, RepoSummary, StorageStats } from '../types'
-import { formatSize, timeAgo } from '../format'
+import { formatSize, registryRef, timeAgo } from '../format'
 import CodeBlock from '../components/CodeBlock'
 import CopyButton from '../components/CopyButton'
 import TermButton from '../components/TermButton'
@@ -102,7 +102,7 @@ export default function Dashboard() {
 
   const go = (name: string) => navigate(`/repo/${encodeURIComponent(name)}`)
 
-  const publicUrl = cfg?.registryPublicUrl ?? 'localhost:5000'
+  const publicUrl = registryRef(cfg?.registryPublicUrl ?? 'localhost:5000')
 
   const diskValue = storage?.available
     ? formatSize(storage.totalBytes)
@@ -241,7 +241,7 @@ export default function Dashboard() {
                         className="group cursor-pointer border-b border-zinc-900 transition-colors last:border-b-0 hover:bg-zinc-900"
                         onClick={() => go(entry.name)}
                       >
-                        <td className="px-4 py-3 align-middle">
+                        <td className="whitespace-nowrap px-4 py-3 align-middle">
                           <Link
                             to={`/repo/${encodeURIComponent(entry.name)}`}
                             className="text-[13px] font-medium text-zinc-100 transition-colors hover:text-white"
@@ -249,19 +249,31 @@ export default function Dashboard() {
                           >
                             {entry.name}
                           </Link>
-                          {detail && (
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              {tags.map((t) => (
-                                <Badge key={t.name}>{t.name}</Badge>
-                              ))}
-                              {entry.tagCount > 3 && (
-                                <Badge variant="dim">+{entry.tagCount - 3}</Badge>
-                              )}
-                            </div>
-                          )}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 align-middle text-[13px] text-zinc-300">
-                          {entry.tagCount}
+                        <td className="px-4 py-3 align-middle">
+                          {detail ? (
+                            tags.length > 0 ? (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {tags.map((t) => (
+                                  <Link
+                                    key={t.name}
+                                    to={`/repo/${encodeURIComponent(entry.name)}/${encodeURIComponent(t.name)}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="transition-opacity hover:opacity-80"
+                                  >
+                                    <Badge>{t.name}</Badge>
+                                  </Link>
+                                ))}
+                                {entry.tagCount > tags.length && (
+                                  <Badge variant="dim">+{entry.tagCount - tags.length}</Badge>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[12.5px] text-zinc-600">0</span>
+                            )
+                          ) : (
+                            <span className="text-[12.5px] text-zinc-500">{entry.tagCount}</span>
+                          )}
                         </td>
                         <td className="hidden px-4 py-3 align-middle md:table-cell">
                           {detail ? (

@@ -58,3 +58,10 @@ export function hostOf(url: string): string {
     return url
   }
 }
+
+// Docker pull/tag/push only accepts host[:port][/path], never http(s)://
+export function registryRef(url: string): string {
+  return url
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '')
+}

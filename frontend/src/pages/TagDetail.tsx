@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, useConfig } from '../api'
 import type { ManifestInfo } from '../types'
-import { formatDate, formatSize, shortDigest, timeAgo } from '../format'
+import { formatDate, formatSize, registryRef, shortDigest, timeAgo } from '../format'
 import { KindBadge, PlatformBadges } from '../components/Badges'
 import ConfigPanel from '../components/ConfigPanel'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -72,7 +72,7 @@ export default function TagDetail() {
     )
   }
 
-  const publicUrl = cfg?.registryPublicUrl ?? 'localhost:5000'
+  const publicUrl = registryRef(cfg?.registryPublicUrl ?? 'localhost:5000')
   const single = info && info.kind !== 'index' ? info.platforms[0] : undefined
   const refLabel = reference.startsWith('sha256:') ? shortDigest(reference) : reference
   const pullCmd = `docker pull ${publicUrl}/${repo}:${

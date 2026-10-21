@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, useConfig } from '../api'
 import type { ActivityEvent, RepoSummary, TagInfo } from '../types'
-import { formatDate, formatSize, shortDigest, timeAgo } from '../format'
+import { formatDate, formatSize, registryRef, shortDigest, timeAgo } from '../format'
 import { Badge, KindBadge, TagPlatformCell } from '../components/Badges'
 import CodeBlock from '../components/CodeBlock'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -53,7 +53,7 @@ export default function Repository() {
     t.name.toLowerCase().includes(query.trim().toLowerCase()),
   )
 
-  const publicUrl = cfg?.registryPublicUrl ?? 'localhost:5000'
+  const publicUrl = registryRef(cfg?.registryPublicUrl ?? 'localhost:5000')
   const pullLatest = `docker pull ${publicUrl}/${repo}:latest`
 
   const confirmDelete = async () => {
