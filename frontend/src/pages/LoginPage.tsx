@@ -75,20 +75,20 @@ export default function LoginPage({ onDone }: { onDone: (username: string) => vo
         >
           <span
             className={`flex h-3.5 w-3.5 items-center justify-center border transition-colors ${
-              remember ? 'border-zinc-200 bg-zinc-200' : 'border-zinc-600 bg-black'
+              remember ? 'border-sky-500/60 bg-sky-500/20 text-sky-300' : 'border-zinc-700 bg-zinc-950'
             }`}
           >
             {remember && (
-              <span className="text-[10px] font-bold leading-none text-black">✕</span>
+              <span className="text-[10px] font-bold leading-none text-sky-300">✕</span>
             )}
           </span>
-          <span className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+          <span className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">
             Remember me
           </span>
         </button>
         <button
           type="submit"
-          className="w-full border border-zinc-300 bg-zinc-200 py-2.5 text-[13px] font-bold text-black transition-colors hover:bg-white disabled:pointer-events-none disabled:opacity-40"
+          className="w-full border border-sky-500/40 bg-sky-500/10 py-2.5 text-[12.5px] font-medium uppercase tracking-widest text-sky-300 transition-colors duration-150 hover:border-sky-400 hover:bg-sky-500/20 hover:text-sky-100 active:bg-sky-500/30 disabled:pointer-events-none disabled:opacity-40 select-none"
           disabled={busy}
         >
           {busy ? 'Signing in…' : 'Continue'}

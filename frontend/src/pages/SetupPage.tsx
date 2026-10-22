@@ -32,7 +32,7 @@ export default function SetupPage({ onDone }: { onDone: (username: string) => vo
     <div className="flex min-h-screen items-center justify-center bg-black p-5">
       <form className="w-full max-w-sm border border-zinc-800 bg-zinc-950 p-7" onSubmit={submit}>
         <div className="mb-4 flex justify-center">
-          <Logo size={30} className="text-zinc-500" />
+          <Logo size={30} className="text-blue-500" />
         </div>
         <h1 className="m-0 text-center text-lg font-bold text-white">Create Admin Account</h1>
         <p className="mt-1.5 mb-6 text-center text-[12px] text-zinc-500">
@@ -89,7 +89,7 @@ export default function SetupPage({ onDone }: { onDone: (username: string) => vo
         </label>
         <button
           type="submit"
-          className="w-full border border-zinc-300 bg-zinc-200 py-2.5 text-[13px] font-bold text-black transition-colors hover:bg-white disabled:pointer-events-none disabled:opacity-40"
+          className="w-full border border-sky-500/40 bg-sky-500/10 py-2.5 text-[12.5px] font-medium uppercase tracking-widest text-sky-300 transition-colors duration-150 hover:border-sky-400 hover:bg-sky-500/20 hover:text-sky-100 active:bg-sky-500/30 disabled:pointer-events-none disabled:opacity-40 select-none"
           disabled={busy}
         >
           {busy ? 'Creating…' : 'Activate account'}

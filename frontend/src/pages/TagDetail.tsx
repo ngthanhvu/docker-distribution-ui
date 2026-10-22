@@ -64,9 +64,9 @@ export default function TagDetail() {
         </div>
         <Link
           to={`/repo/${repoPath(repo)}`}
-          className="inline-flex items-center px-2 py-1.5 text-[12px] uppercase tracking-[0.08em] text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
+          className="inline-flex select-none items-center justify-center gap-1 border border-zinc-700/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium leading-normal uppercase tracking-[0.08em] text-zinc-300 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 active:bg-zinc-700"
         >
-          [ BACK ]
+          ← Back
         </Link>
       </div>
     )
@@ -91,10 +91,10 @@ export default function TagDetail() {
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to={`/repo/${repoPath(repo)}`}
-            className="inline-flex shrink-0 items-center px-2 py-1.5 text-[12px] uppercase tracking-[0.08em] text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
+            className="inline-flex shrink-0 select-none items-center justify-center gap-1 border border-zinc-700/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium leading-normal uppercase tracking-[0.08em] text-zinc-300 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 active:bg-zinc-700"
             title="Back to repository"
           >
-            [ BACK ]
+            ← Back
           </Link>
           <div className="min-w-0">
             <h1 className="m-0 break-all text-xl font-bold tracking-tight text-white">
@@ -194,10 +194,10 @@ export default function TagDetail() {
                   type="button"
                   disabled={t.disabled}
                   onClick={() => setTab(t.id)}
-                  className={`px-4 py-2.5 text-[12px] uppercase tracking-[0.08em] transition-colors disabled:pointer-events-none disabled:opacity-40 ${
+                  className={`border-b-2 px-4 py-2 text-[12px] font-medium uppercase tracking-[0.08em] transition-colors disabled:pointer-events-none disabled:opacity-40 ${
                     tab === t.id
-                      ? 'bg-zinc-100 font-bold text-black'
-                      : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200'
+                      ? 'border-sky-400 bg-sky-500/10 text-sky-300'
+                      : 'border-transparent text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200'
                   }`}
                 >
                   {t.label}

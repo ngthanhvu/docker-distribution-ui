@@ -29,11 +29,11 @@ export default function ConfirmDialog({
         aria-modal
       >
         <h3 className="m-0 mb-2.5 text-base font-bold text-white">{title}</h3>
-        <p className="m-0 mb-6 break-words text-[12.5px] leading-relaxed text-zinc-500">
+        <p className="m-0 mb-6 wrap-break-word text-[12.5px] leading-relaxed text-zinc-500">
           {message}
         </p>
         <div className="flex justify-end gap-2">
-          <TermButton onClick={onClose} disabled={busy}>
+          <TermButton variant="neutral" onClick={onClose} disabled={busy}>
             Cancel
           </TermButton>
           <TermButton danger onClick={onConfirm} disabled={busy}>

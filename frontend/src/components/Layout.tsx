@@ -76,9 +76,9 @@ export default function Layout({
       <header className="sticky top-0 z-40 border-b border-zinc-800 bg-black">
         <div className="mx-auto flex h-12 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex min-w-0 items-center gap-2.5">
-            <Logo size={20} className="shrink-0 text-zinc-400" />
+            <Logo size={20} className="shrink-0 text-blue-500" />
             <span className="truncate text-[13px] font-bold tracking-[0.06em] text-white">
-              DOCKER // REGISTRY
+              DOCKER STORAGE REGISTRY
             </span>
           </Link>
           <div className="flex items-center gap-3">
@@ -103,6 +103,7 @@ export default function Layout({
                   <span className="max-w-35 truncate text-zinc-300">{username}</span>
                 </span>
                 <TermButton
+                  variant="neutral"
                   onClick={() => {
                     api.auth.logout().catch(() => {})
                     onLogout?.()
@@ -150,7 +151,7 @@ export default function Layout({
       <footer className="border-t border-zinc-800">
         <div className="mx-auto flex h-10 max-w-7xl items-center justify-between gap-3 px-4 text-[11px] sm:px-6 lg:px-8">
           <span className="truncate uppercase tracking-[0.12em] text-zinc-100">
-            Docker Distribution Registry{cfg?.version ? ` v${cfg.version}` : ''}
+            &copy;ngthanhvu - docker storage registry{cfg?.version ? ` v${cfg.version}` : ''}
           </span>
           <span className="flex shrink-0 items-center gap-2 text-zinc-100">
             <span className={`text-[9px] leading-none ${dotColor}`}>●</span>
