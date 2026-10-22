@@ -1,6 +1,6 @@
 /* ============================================================
    Docker Distribution UI — minimalist brutalist dark mode
-   Pure black, 1px zinc borders, monospace everywhere.
+   Soft graphite (not pure black), 1px zinc borders, monospace.
    ============================================================ */
 
 @import 'tailwindcss';
@@ -11,10 +11,13 @@
   --font-sans: ui-monospace, 'JetBrains Mono', 'Fira Code', 'SFMono-Regular',
     Menlo, Consolas, monospace;
 
-  --color-black: #0f1115;
-  --color-zinc-950: #16181f;
-  --color-zinc-900: #20222a;
-  --color-zinc-800: #2e313b;
+  --color-black: #1a1e25;
+  --color-zinc-950: #22262f;
+  --color-zinc-900: #2b303c;
+  --color-zinc-800: #373e4b;
+  --color-zinc-700: #454e5e;
+  --color-zinc-600: #757e8b;
+  --color-zinc-500: #8791a0;
 }
 
 @layer base {
