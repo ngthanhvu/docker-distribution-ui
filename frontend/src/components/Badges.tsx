@@ -27,7 +27,7 @@ export function Badge({
       }`}
       title={title}
     >
-      [{children}]
+      {children}
     </span>
   )
 }
@@ -45,9 +45,16 @@ export function KindBadge({ kind }: { kind: string }) {
 }
 
 export function PlatformBadges({ p }: { p: PlatformSummary }) {
+  if (p.os === 'unknown' && p.architecture === 'unknown') {
+    return (
+      <Badge variant="dim" title="BuildKit attestation / provenance manifest">
+        attestation
+      </Badge>
+    )
+  }
   const parts: string[] = []
-  if (p.os) parts.push(p.os)
-  if (p.architecture) parts.push(p.architecture)
+  if (p.os && p.os !== 'unknown') parts.push(p.os)
+  if (p.architecture && p.architecture !== 'unknown') parts.push(p.architecture)
   if (p.variant) parts.push(p.variant)
   if (parts.length === 0) return null
   const label = parts.join('/')

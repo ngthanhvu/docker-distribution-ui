@@ -110,7 +110,7 @@ export default function TagDetail() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex min-w-0 items-center gap-2 border border-zinc-800 bg-black py-1.5 pl-3 pr-1.5">
             <span className="text-[12px] text-zinc-600">$</span>
-            <code className="max-w-70 truncate text-[12.5px] text-zinc-100">
+            <code className="max-w-xs sm:max-w-md lg:max-w-lg truncate text-[12.5px] text-zinc-100">
               {pullCmd}
             </code>
             <CopyButton text={pullCmd} title="Copy pull command" />
@@ -140,7 +140,7 @@ export default function TagDetail() {
 
       {info && (
         <>
-          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               icon={<CpuIcon className="text-purple-400" />}
               value={<KindBadge kind={info.kind} />}

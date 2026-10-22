@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api, useConfig } from '../api'
 import type { ActivityEvent, RepoSummary, TagInfo } from '../types'
 import { formatDate, formatSize, registryRef, shortDigest, timeAgo } from '../format'
-import { Badge, KindBadge, TagPlatformCell } from '../components/Badges'
+import { KindBadge, TagPlatformCell } from '../components/Badges'
 import CodeBlock from '../components/CodeBlock'
 import ConfirmDialog from '../components/ConfirmDialog'
 import CopyButton from '../components/CopyButton'
@@ -13,7 +13,7 @@ import StatCard from '../components/StatCard'
 import { ActivityIcon, ClockIcon, DiskIcon, PullIcon, TagIcon, TerminalIcon } from '../components/icons'
 
 const th =
-  'border-b border-zinc-800 px-4 py-2.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-zinc-600'
+  'border-b border-zinc-800 px-3.5 py-2.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-zinc-600'
 
 function repoPath(name: string): string {
   return encodeURIComponent(name)
@@ -110,7 +110,7 @@ export default function Repository() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex min-w-0 items-center gap-2 border border-zinc-800 bg-black py-1.5 pl-3 pr-1.5">
             <span className="text-[12px] text-zinc-600">$</span>
-            <code className="max-w-70 truncate text-[12.5px] text-zinc-100">
+            <code className="max-w-xs sm:max-w-md lg:max-w-lg truncate text-[12.5px] text-zinc-100">
               {pullLatest}
             </code>
             <CopyButton text={pullLatest} title="Copy pull command" />
@@ -121,146 +121,151 @@ export default function Repository() {
         </div>
       </div>
 
-      {data && (
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            icon={<TagIcon className="text-emerald-400" />}
-            value={data.tagCount}
-            label="Tags"
-          />
-          <StatCard
-            icon={<DiskIcon className="text-purple-400" />}
-            value={formatSize(data.totalSize)}
-            label="Total size"
-            sub="unique manifests"
-          />
-          <StatCard
-            icon={<ClockIcon className="text-sky-400" />}
-            value={
-              data.lastPush
-                ? timeAgo(data.lastPush)
-                : data.lastCreated
-                  ? timeAgo(data.lastCreated)
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+        {/* Left column: Repos stats + Tags table */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatCard
+              icon={<TagIcon className="text-emerald-400" />}
+              value={data ? data.tagCount : '—'}
+              label="Tags"
+            />
+            <StatCard
+              icon={<DiskIcon className="text-purple-400" />}
+              value={data ? formatSize(data.totalSize) : '—'}
+              label="Total size"
+              sub={data ? 'unique manifests' : undefined}
+            />
+            <StatCard
+              icon={<ClockIcon className="text-sky-400" />}
+              value={
+                data
+                  ? data.lastPush
+                    ? timeAgo(data.lastPush)
+                    : data.lastCreated
+                      ? timeAgo(data.lastCreated)
+                      : '—'
                   : '—'
-            }
-            label="Last pushed"
-            title={data.lastPush ?? data.lastCreated}
-          />
-          <StatCard
-            icon={<PullIcon className="text-amber-400" />}
-            value={data.pullCount ?? 0}
-            label="Pulls"
-            sub={data.lastPull ? `last ${timeAgo(data.lastPull)}` : 'never'}
-            title="Counted since activity tracking was enabled"
-          />
-        </div>
-      )}
-
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
-        <div className="min-w-0 overflow-hidden border border-zinc-800 bg-zinc-950">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 p-3">
-            <div className="flex w-full max-w-xs items-center gap-2 border border-zinc-800 bg-black px-3 py-1.5 transition-colors focus-within:border-zinc-400">
-              <span className="text-[13px] text-zinc-600">&gt;</span>
-              <input
-                type="text"
-                placeholder="Filter tags..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full bg-transparent text-[13px] text-zinc-200 outline-none placeholder:text-zinc-600"
-              />
-            </div>
+              }
+              label="Last pushed"
+              title={data ? data.lastPush ?? data.lastCreated : undefined}
+            />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className={`${th} text-left`}>Tag</th>
-                  <th className={`${th} text-left`}>Type</th>
-                  <th className={`${th} text-left`}>Platform</th>
-                  <th className={`${th} text-left`}>Digest</th>
-                  <th className={`${th} text-left`}>Size</th>
-                  <th className={`${th} hidden text-left md:table-cell`}>Pushed</th>
-                  <th className={`${th} text-right`}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!data && (
+
+          <div className="min-w-0 overflow-hidden border border-zinc-800 bg-zinc-950">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 p-3">
+              <div className="flex w-full max-w-xs items-center gap-2 border border-zinc-800 bg-black px-3 py-1.5 transition-colors focus-within:border-zinc-400">
+                <span className="text-[13px] text-zinc-600">&gt;</span>
+                <input
+                  type="text"
+                  placeholder="Filter tags..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full bg-transparent text-[13px] text-zinc-200 outline-none placeholder:text-zinc-600"
+                />
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
                   <tr>
-                    <td colSpan={7} className="px-4 py-2">
-                      {[0, 1, 2].map((i) => (
-                        <div key={i} className="skeleton-row" />
-                      ))}
-                    </td>
+                    <th className={`${th} w-[22%] text-left pl-4`}>Tag</th>
+                    <th className={`${th} w-[10%] text-left`}>Type</th>
+                    <th className={`${th} w-[20%] text-left`}>Platform</th>
+                    <th className={`${th} w-[20%] text-left`}>Digest</th>
+                    <th className={`${th} w-[10%] text-left`}>Size</th>
+                    <th className={`${th} hidden w-[10%] text-left md:table-cell`}>Pushed</th>
+                    <th className={`${th} w-[8%] text-right pr-4`}>Actions</th>
                   </tr>
-                )}
-                {data &&
-                  filtered.map((tag) => (
-                    <tr
-                      key={tag.name}
-                      className="border-b border-zinc-900 transition-colors last:border-b-0 hover:bg-zinc-900"
-                    >
-                      <td className="px-4 py-3 align-middle">
-                        <Link
-                          className="text-[13px] font-medium text-sky-400 transition-colors hover:text-sky-300 hover:underline"
-                          to={`/repo/${repoPath(repo)}/${encodeURIComponent(tag.name)}`}
-                        >
-                          {tag.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <KindBadge kind={tag.kind} />
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <TagPlatformCell tag={tag} />
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 align-middle">
-                        <span className="mr-1 text-[12px] text-zinc-500" title={tag.digest}>
-                          {shortDigest(tag.digest)}
-                        </span>
-                        <CopyButton text={tag.digest} title="Copy digest" />
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] text-zinc-300">
-                        {tag.totalSize >= 0 ? formatSize(tag.totalSize) : '—'}
-                      </td>
-                      <td className="hidden whitespace-nowrap px-4 py-3 align-middle text-[12.5px] text-zinc-500 md:table-cell">
-                        {tag.created ? (
-                          <span title={formatDate(tag.created)}>{timeAgo(tag.created)}</span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right align-middle">
-                        <TermButton
-                          danger
-                          title="Delete manifest"
-                          onClick={() => {
-                            setDeleteError('')
-                            setToDelete(tag)
-                          }}
-                        >
-                          Delete
-                        </TermButton>
+                </thead>
+                <tbody>
+                  {!data && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-2">
+                        {[0, 1, 2].map((i) => (
+                          <div key={i} className="skeleton-row" />
+                        ))}
                       </td>
                     </tr>
-                  ))}
-                {data && filtered.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-8 text-center text-[12.5px] text-zinc-600"
-                    >
-                      {data.tagCount === 0
-                        ? 'No tags — all manifests were deleted. Garbage collection will reclaim the storage.'
-                        : `No tags match “${query}”.`}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                  {data &&
+                    filtered.map((tag) => (
+                      <tr
+                        key={tag.name}
+                        className="border-b border-zinc-900 transition-colors last:border-b-0 hover:bg-zinc-900"
+                      >
+                        <td className="whitespace-nowrap px-3.5 py-2.5 pl-4 align-middle">
+                          <Link
+                            className="text-[13px] font-medium text-sky-400 transition-colors hover:text-sky-300 hover:underline"
+                            to={`/repo/${repoPath(repo)}/${encodeURIComponent(tag.name)}`}
+                          >
+                            {tag.name}
+                          </Link>
+                        </td>
+                        <td className="whitespace-nowrap px-3.5 py-2.5 align-middle">
+                          <KindBadge kind={tag.kind} />
+                        </td>
+                        <td className="px-3.5 py-2.5 align-middle">
+                          <TagPlatformCell tag={tag} />
+                        </td>
+                        <td className="whitespace-nowrap px-3.5 py-2.5 align-middle">
+                          <span className="mr-1 text-[12px] text-zinc-500" title={tag.digest}>
+                            {shortDigest(tag.digest)}
+                          </span>
+                          <CopyButton text={tag.digest} title="Copy digest" />
+                        </td>
+                        <td className="whitespace-nowrap px-3.5 py-2.5 align-middle text-[12.5px] text-zinc-300">
+                          {tag.totalSize >= 0 ? formatSize(tag.totalSize) : '—'}
+                        </td>
+                        <td className="hidden whitespace-nowrap px-3.5 py-2.5 align-middle text-[12.5px] text-zinc-500 md:table-cell">
+                          {tag.created ? (
+                            <span title={formatDate(tag.created)}>{timeAgo(tag.created)}</span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3.5 py-2.5 pr-4 text-right align-middle">
+                          <TermButton
+                            danger
+                            title="Delete manifest"
+                            onClick={() => {
+                              setDeleteError('')
+                              setToDelete(tag)
+                            }}
+                          >
+                            Delete
+                          </TermButton>
+                        </td>
+                      </tr>
+                    ))}
+                  {data && filtered.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-[12.5px] text-zinc-600"
+                      >
+                        {data.tagCount === 0
+                          ? 'No tags — all manifests were deleted. Garbage collection will reclaim the storage.'
+                          : `No tags match “${query}”.`}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <aside className="grid content-start gap-4 lg:sticky lg:top-16">
+        {/* Right column: Pulls StatCard + Push&Pull + Activity */}
+        <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-16">
+          <StatCard
+            icon={<PullIcon className="text-amber-400" />}
+            value={data ? data.pullCount ?? 0 : '—'}
+            label="Pulls"
+            sub={data?.lastPull ? `last ${timeAgo(data.lastPull)}` : data ? 'never' : undefined}
+            title="Counted since activity tracking was enabled"
+          />
+
           <div className="border border-zinc-800 bg-zinc-950 p-4">
             <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
               <TerminalIcon size={13} className="text-sky-400" />
@@ -277,27 +282,7 @@ export default function Repository() {
               ]}
             />
           </div>
-          {data && data.tags.length > 0 && (
-            <div className="border border-zinc-800 bg-zinc-950 p-4">
-              <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                <TagIcon size={13} className="text-emerald-400" />
-                Latest tags
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {data.tags
-                  .slice(-8)
-                  .reverse()
-                  .map((t) => (
-                    <Link
-                      key={t.name}
-                      to={`/repo/${repoPath(repo)}/${encodeURIComponent(t.name)}`}
-                    >
-                      <Badge>{t.name}</Badge>
-                    </Link>
-                  ))}
-              </div>
-            </div>
-          )}
+
           <div className="border border-zinc-800 bg-zinc-950 p-4">
             <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
               <ActivityIcon size={13} className="text-amber-400" />

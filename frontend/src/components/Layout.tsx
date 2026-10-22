@@ -74,7 +74,7 @@ export default function Layout({
   return (
     <div className="flex min-h-screen flex-col bg-black">
       <header className="sticky top-0 z-40 border-b border-zinc-800 bg-black">
-        <div className="mx-auto flex h-12 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-12 max-w-7xl 2xl:max-w-360 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex min-w-0 items-center gap-2.5">
             <Logo size={20} className="shrink-0 text-blue-500" />
             <span className="truncate text-[13px] font-bold tracking-[0.06em] text-white">
@@ -117,7 +117,7 @@ export default function Layout({
         </div>
         {repoName && (
           <div className="border-t border-zinc-900">
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-1 gap-y-1 px-4 py-2 text-[12.5px] sm:px-6 lg:px-8">
+            <div className="mx-auto flex max-w-7xl 2xl:max-w-360 flex-wrap items-center gap-x-1 gap-y-1 px-4 py-2 text-[12.5px] sm:px-6 lg:px-8">
               <Link
                 to="/"
                 className="text-zinc-500 transition-colors hover:text-zinc-100"
@@ -144,12 +144,12 @@ export default function Layout({
         )}
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl 2xl:max-w-360 flex-1 px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </main>
 
       <footer className="border-t border-zinc-800">
-        <div className="mx-auto flex h-10 max-w-7xl items-center justify-between gap-3 px-4 text-[11px] sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-10 max-w-7xl 2xl:max-w-360 items-center justify-between gap-3 px-4 text-[11px] sm:px-6 lg:px-8">
           <span className="truncate uppercase tracking-[0.12em] text-zinc-100">
             &copy;ngthanhvu - docker storage registry{cfg?.version ? ` v${cfg.version}` : ''}
           </span>

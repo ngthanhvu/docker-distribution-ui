@@ -142,66 +142,62 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={<BoxIcon className="text-sky-400" />}
-          value={entries ? entries.length : '—'}
-          label="Repositories"
-        />
-        <StatCard
-          icon={<TagIcon className="text-emerald-400" />}
-          value={entries ? totalTags : '—'}
-          label="Tags"
-        />
-        <StatCard
-          icon={<DiskIcon className="text-purple-400" />}
-          value={diskValue}
-          label="Storage"
-          sub={diskSub || undefined}
-          title={
-            storage?.available
-              ? `Real on-disk usage, scanned ${timeAgo(storage.scannedAt)}`
-              : 'Sum of image sizes (storage not mounted)'
-          }
-        />
-        <StatCard
-          icon={<ActivityIcon className="text-amber-400" />}
-          value={activity24.total}
-          label="Activity · 24h"
-          sub={`${activity24.pushes} push · ${activity24.pulls} pull`}
-        />
-      </div>
-
-      {loading && (
-        <div className="border border-zinc-800 bg-zinc-950 py-2">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="skeleton-row" />
-          ))}
-        </div>
-      )}
-
-      {entries && entries.length === 0 && (
-        <div className="border border-zinc-800 bg-zinc-950 p-10 text-center">
-          <h2 className="m-0 mb-1.5 text-base font-bold text-white">Your registry is empty</h2>
-          <p className="m-0 mb-4 text-[12.5px] text-zinc-500">
-            Push your first image to get started:
-          </p>
-          <div className="mx-auto max-w-lg text-left">
-            <CodeBlock
-              lines={[
-                '# pull any image and retag it for your registry',
-                'docker pull hello-world:latest',
-                `docker tag hello-world:latest ${publicUrl}/demo`,
-                `docker push ${publicUrl}/demo`,
-              ]}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+        {/* Left column: 3 StatCards + Repositories */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatCard
+              icon={<BoxIcon className="text-sky-400" />}
+              value={entries ? entries.length : '—'}
+              label="Repositories"
+            />
+            <StatCard
+              icon={<TagIcon className="text-emerald-400" />}
+              value={entries ? totalTags : '—'}
+              label="Tags"
+            />
+            <StatCard
+              icon={<DiskIcon className="text-purple-400" />}
+              value={diskValue}
+              label="Storage"
+              sub={diskSub || undefined}
+              title={
+                storage?.available
+                  ? `Real on-disk usage, scanned ${timeAgo(storage.scannedAt)}`
+                  : 'Sum of image sizes (storage not mounted)'
+              }
             />
           </div>
-        </div>
-      )}
 
-      {entries && entries.length > 0 && (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0 overflow-hidden border border-zinc-800 bg-zinc-950">
+          {loading && (
+            <div className="border border-zinc-800 bg-zinc-950 py-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="skeleton-row" />
+              ))}
+            </div>
+          )}
+
+          {entries && entries.length === 0 && (
+            <div className="border border-zinc-800 bg-zinc-950 p-10 text-center">
+              <h2 className="m-0 mb-1.5 text-base font-bold text-white">Your registry is empty</h2>
+              <p className="m-0 mb-4 text-[12.5px] text-zinc-500">
+                Push your first image to get started:
+              </p>
+              <div className="mx-auto max-w-lg text-left">
+                <CodeBlock
+                  lines={[
+                    '# pull any image and retag it for your registry',
+                    'docker pull hello-world:latest',
+                    `docker tag hello-world:latest ${publicUrl}/demo`,
+                    `docker push ${publicUrl}/demo`,
+                  ]}
+                />
+              </div>
+            </div>
+          )}
+
+          {entries && entries.length > 0 && (
+            <div className="min-w-0 overflow-hidden border border-zinc-800 bg-zinc-950">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 p-3">
               <div className="flex w-full max-w-sm items-center gap-2 border border-zinc-800 bg-black px-3 py-1.5 transition-colors focus-within:border-zinc-400">
                 <span className="text-[13px] text-zinc-600">&gt;</span>
@@ -222,11 +218,11 @@ export default function Dashboard() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th className={`${th} text-left`}>Name</th>
-                    <th className={`${th} text-left`}>Tags</th>
-                    <th className={`${th} hidden text-left md:table-cell`}>Size</th>
-                    <th className={`${th} hidden text-left md:table-cell`}>Last pushed</th>
-                    <th className={`${th} text-right`}>Actions</th>
+                    <th className={`${th} w-[30%] text-left pl-4`}>Name</th>
+                    <th className={`${th} w-[25%] text-left`}>Tags</th>
+                    <th className={`${th} hidden w-[15%] text-left md:table-cell`}>Size</th>
+                    <th className={`${th} hidden w-[15%] text-left md:table-cell`}>Last pushed</th>
+                    <th className={`${th} w-[15%] text-right pr-4`}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -333,23 +329,31 @@ export default function Dashboard() {
               </table>
             </div>
           </div>
+        )}
+      </div>
 
-          <aside className="grid gap-4 lg:sticky lg:top-16">
-            <div className="border border-zinc-800 bg-zinc-950 p-4">
-              <h3 className="mb-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                <span className="flex items-center gap-1.5">
-                  <ActivityIcon size={13} className="text-amber-400" />
-                  Activity
-                </span>
-                {events.length > 0 && (
-                  <span className="font-normal text-zinc-600">{events.length}</span>
-                )}
-              </h3>
-              <ActivityFeed events={events} />
-            </div>
-          </aside>
+      {/* Right column: Activity StatCard + Activity Feed */}
+      <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-16">
+        <StatCard
+          icon={<ActivityIcon className="text-amber-400" />}
+          value={activity24.total}
+          label="Activity · 24h"
+          sub={`${activity24.pushes} push · ${activity24.pulls} pull`}
+        />
+        <div className="border border-zinc-800 bg-zinc-950 p-4">
+          <h3 className="mb-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
+            <span className="flex items-center gap-1.5">
+              <ActivityIcon size={13} className="text-amber-400" />
+              Activity
+            </span>
+            {events.length > 0 && (
+              <span className="font-normal text-zinc-600">{events.length}</span>
+            )}
+          </h3>
+          <ActivityFeed events={events} />
         </div>
-      )}
+      </aside>
+    </div>
     </>
   )
 }
