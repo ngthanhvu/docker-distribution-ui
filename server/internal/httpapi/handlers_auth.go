@@ -13,12 +13,23 @@ import (
 
 func (s *Server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 	username, ok := s.currentUser(r)
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"initialized":   s.auth.Initialized(),
 		"authenticated": ok,
 		"username":      username,
 		"authDisabled":  s.auth.Disabled(),
-	})
+	}
+	if ok {
+		if _, createdAt, updatedAt, has := s.auth.AccountInfo(); has {
+			if createdAt != "" {
+				resp["createdAt"] = createdAt
+			}
+			if updatedAt != "" {
+				resp["passwordUpdatedAt"] = updatedAt
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleAuthSetup(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +81,34 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	setSessionCookie(w, token, cookieTTL)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "username": body.Username})
+}
+
+// handleAuthPassword changes the admin password. The caller must already be
+// logged in and must confirm the current password, so an abandoned browser
+// session cannot silently take over the account.
+func (s *Server) handleAuthPassword(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+	if !parseAuthBody(w, r, &body) {
+		return
+	}
+
+	token, cookieTTL, err := s.auth.ChangePassword(body.CurrentPassword, body.NewPassword)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrInvalid):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		case errors.Is(err, auth.ErrNotInitialized):
+			writeJSON(w, http.StatusPreconditionFailed, map[string]string{"error": "no admin account exists"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return
+	}
+	setSessionCookie(w, token, cookieTTL)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {

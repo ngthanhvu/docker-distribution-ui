@@ -16,6 +16,7 @@ import (
 	"registryui/internal/httpapi"
 	"registryui/internal/registry"
 	"registryui/internal/service"
+	"registryui/internal/tokenauth"
 )
 
 var version = "dev"
@@ -33,9 +34,19 @@ func main() {
 		log.Printf("activity: load: %v", err)
 	}
 
+	var tokens *tokenauth.Signer
+	if cfg.TokenAuth {
+		tokens, err = tokenauth.LoadOrCreate(cfg.TokenKeyDir, cfg.TokenIssuer)
+		if err != nil {
+			log.Fatalf("tokenauth: %v", err)
+		}
+		log.Printf("tokenauth: signing key ready in %s (issuer %q, service %q)", cfg.TokenKeyDir, cfg.TokenIssuer, cfg.TokenService)
+	}
+
 	client := registry.NewClient(cfg.RegistryURL, cfg.RegistryUsername, cfg.RegistryPassword)
+	client.SetTokenSigner(tokens)
 	svc := service.New(client, cfg.CacheTTL, act, cfg.StorageRoot)
-	api := httpapi.New(cfg, svc, authStore, version)
+	api := httpapi.New(cfg, svc, authStore, tokens, version)
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,

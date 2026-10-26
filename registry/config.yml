@@ -32,14 +32,18 @@ notifications:
       headers:
         X-Registry-Event: [dev-registry-events-secret]
 
-# --- Optional: enable basic auth ---
-# Uncomment and create auth/htpasswd (see README) then uncomment the env vars
-# in docker-compose.yml to protect the registry.
-#
-# auth:
-#   htpasswd:
-#     realm: basic-realm
-#     path: /etc/docker/registry/auth/htpasswd
+# Token auth: docker login/pull/push must request a bearer token from the UI
+# backend (/api/token) using the web UI admin account. The realm must be
+# reachable from docker clients (edit it when clients run on other machines,
+# e.g. http://<host>:8081/api/token or https://<domain>/api/token). The
+# issuer/service values must match TOKEN_ISSUER/TOKEN_SERVICE on the backend,
+# and /token-keys is the shared signing-key volume.
+auth:
+  token:
+    realm: http://localhost:8081/api/token
+    service: registry-ui
+    issuer: registry-ui
+    rootcertbundle: /token-keys/token-root.pem
 
 health:
   storagedriver:

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import LoginPage from './pages/LoginPage'
+import Profile from './pages/Profile'
 import Repository from './pages/Repository'
 import SetupPage from './pages/SetupPage'
 import TagDetail from './pages/TagDetail'
@@ -84,6 +85,7 @@ export default function App() {
     >
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/repo/:name" element={<Repository />} />
         <Route path="/repo/:name/:ref" element={<TagDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />

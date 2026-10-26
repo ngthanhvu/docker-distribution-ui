@@ -9,11 +9,16 @@ services:
     volumes:
       - ./registry/config.yml:/etc/docker/registry/config.yml:ro
       - registry-data:/var/lib/registry
+      - token-keys:/token-keys:ro
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5000/v2/"]
+      # 200 = open registry, 401 = token auth active — both healthy.
+      test: ["CMD-SHELL", "wget -S -q -O /dev/null http://localhost:5000/v2/ 2>&1 | grep -q 'HTTP/1.1 200\\|HTTP/1.1 401'"]
       interval: 10s
       timeout: 3s
       retries: 5
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
       - registry-net
 
@@ -32,12 +37,18 @@ services:
       DATA_DIR: /data
       EVENT_SECRET: ${EVENT_SECRET:-dev-registry-events-secret}
       REGISTRY_STORAGE_DIR: /registry-data
+      TOKEN_AUTH: "true"
+      TOKEN_KEY_DIR: /token-keys
     volumes:
       - backend-data:/data
       - registry-data:/registry-data:ro
-    depends_on:
-      registry:
-        condition: service_healthy
+      - token-keys:/token-keys
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/auth/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 3s
     networks:
       - registry-net
 
@@ -56,6 +67,7 @@ services:
 volumes:
   registry-data:
   backend-data:
+  token-keys:
 
 networks:
   registry-net:

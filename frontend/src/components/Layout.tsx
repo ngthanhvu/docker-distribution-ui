@@ -3,8 +3,7 @@ import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { api, useConfig } from '../api'
 import { hostOf, shortDigest } from '../format'
-import CopyButton from './CopyButton'
-import TermButton from './TermButton'
+import UserMenu from './UserMenu'
 import { Logo } from './icons'
 
 type HealthState = 'up' | 'down' | 'unknown'
@@ -75,51 +74,26 @@ export default function Layout({
     <div className="flex min-h-screen flex-col bg-black">
       <header className="sticky top-0 z-40 border-b border-zinc-800 bg-black">
         <div className="mx-auto flex h-12 max-w-7xl 2xl:max-w-360 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="flex min-w-0 items-center gap-2.5">
+          <Link to="/" viewTransition className="flex min-w-0 items-center gap-2.5">
             <Logo size={20} className="shrink-0 text-blue-500" />
             <span className="truncate text-[13px] font-bold tracking-[0.06em] text-white">
               DOCKER STORAGE REGISTRY
             </span>
           </Link>
           <div className="flex items-center gap-3">
-            {cfg && (
-              <span
-                className="hidden items-center gap-1 text-[12px] md:flex"
-                title={cfg.registryPublicUrl}
-              >
-                <span className="text-zinc-600">HOST:</span>
-                <span className="text-zinc-300">{hostOf(cfg.registryPublicUrl)}</span>
-                <CopyButton text={cfg.registryPublicUrl} title="Copy registry URL" />
-              </span>
-            )}
             <span className="flex items-center gap-1.5 text-[12px]" title={healthTitle}>
               <span className={`text-[9px] leading-none ${dotColor}`}>●</span>
               <span className="text-zinc-500">{healthLabel}</span>
             </span>
-            {username && (
-              <span className="flex items-center gap-1.5">
-                <span className="hidden items-center gap-1 text-[12px] sm:flex">
-                  <span className="text-zinc-600">USER:</span>
-                  <span className="max-w-35 truncate text-zinc-300">{username}</span>
-                </span>
-                <TermButton
-                  variant="neutral"
-                  onClick={() => {
-                    api.auth.logout().catch(() => {})
-                    onLogout?.()
-                  }}
-                >
-                  LOGOUT
-                </TermButton>
-              </span>
-            )}
+            {username && <UserMenu username={username} onLogout={onLogout} />}
           </div>
         </div>
-        {repoName && (
+        {repoName ? (
           <div className="border-t border-zinc-900">
             <div className="mx-auto flex max-w-7xl 2xl:max-w-360 flex-wrap items-center gap-x-1 gap-y-1 px-4 py-2 text-[12.5px] sm:px-6 lg:px-8">
               <Link
                 to="/"
+                viewTransition
                 className="text-zinc-500 transition-colors hover:text-zinc-100"
               >
                 ~/repositories
@@ -127,6 +101,7 @@ export default function Layout({
               <span className="text-zinc-700">/</span>
               <Link
                 to={`/repo/${repoPath(repoName)}`}
+                viewTransition
                 className="max-w-[320px] truncate text-zinc-300 transition-colors hover:text-zinc-100"
               >
                 {repoName}
@@ -139,6 +114,12 @@ export default function Layout({
                   </span>
                 </>
               )}
+            </div>
+          </div>
+        ) : (
+          <div className="border-t border-zinc-900">
+            <div className="mx-auto flex max-w-7xl 2xl:max-w-360 flex-wrap items-center gap-x-1 gap-y-1 px-4 py-2 text-[12.5px] text-zinc-500 sm:px-6 lg:px-8">
+              {pathname.startsWith('/profile') ? '~/account' : '~/repositories'}
             </div>
           </div>
         )}

@@ -23,6 +23,8 @@ export interface AuthStatus {
   authenticated: boolean
   username?: string
   authDisabled: boolean
+  createdAt?: string
+  passwordUpdatedAt?: string
 }
 
 let unauthorizedHandler: (() => void) | null = null
@@ -96,6 +98,11 @@ export const api = {
         '/api/auth/login',
         jsonInit('POST', { username, password, remember }),
         { ignoreAuth: true },
+      ),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      request<{ ok: boolean }>(
+        '/api/auth/password',
+        jsonInit('POST', { currentPassword, newPassword }),
       ),
     logout: () =>
       request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }, { ignoreAuth: true }),

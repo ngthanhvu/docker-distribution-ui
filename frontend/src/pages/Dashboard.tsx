@@ -39,8 +39,6 @@ export default function Dashboard() {
   const load = useCallback(() => {
     setLoading(true)
     setError('')
-    setDetails({})
-    setEntries(null)
     api
       .catalog()
       .then((res) => {
@@ -100,7 +98,8 @@ export default function Dashboard() {
   )
   const activity24 = useMemo(() => countRecentActivity(events), [events])
 
-  const go = (name: string) => navigate(`/repo/${encodeURIComponent(name)}`)
+  const go = (name: string) =>
+    navigate(`/repo/${encodeURIComponent(name)}`, { viewTransition: true })
 
   const publicUrl = registryRef(cfg?.registryPublicUrl ?? 'localhost:5000')
 
@@ -169,7 +168,7 @@ export default function Dashboard() {
             />
           </div>
 
-          {loading && (
+          {loading && !entries && (
             <div className="border border-zinc-800 bg-zinc-950 py-2">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="skeleton-row" />
@@ -197,7 +196,11 @@ export default function Dashboard() {
           )}
 
           {entries && entries.length > 0 && (
-            <div className="min-w-0 overflow-hidden border border-zinc-800 bg-zinc-950">
+            <div
+              className={`min-w-0 overflow-hidden border border-zinc-800 bg-zinc-950 transition-opacity duration-200 ${
+                loading ? 'opacity-50' : 'opacity-100'
+              }`}
+            >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 p-3">
               <div className="flex w-full max-w-sm items-center gap-2 border border-zinc-800 bg-black px-3 py-1.5 transition-colors focus-within:border-zinc-400">
                 <span className="text-[13px] text-zinc-600">&gt;</span>
@@ -240,6 +243,7 @@ export default function Dashboard() {
                         <td className="whitespace-nowrap px-4 py-3 align-middle">
                           <Link
                             to={`/repo/${encodeURIComponent(entry.name)}`}
+                            viewTransition
                             className="text-[13px] font-medium text-zinc-100 transition-colors hover:text-white"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -253,6 +257,7 @@ export default function Dashboard() {
                                 {tags.map((t) => (
                                   <Link
                                     key={t.name}
+                                    viewTransition
                                     to={`/repo/${encodeURIComponent(entry.name)}/${encodeURIComponent(t.name)}`}
                                     onClick={(e) => e.stopPropagation()}
                                     className="transition-opacity hover:opacity-80"

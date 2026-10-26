@@ -19,6 +19,17 @@ http:
   headers:
     X-Content-Type-Options: [nosniff]
 
+# Token auth: docker login/pull/push must request a bearer token from the UI
+# backend (/api/token) using the web UI admin account. The realm must be
+# reachable from docker clients (edit it to your public URL, e.g.
+# https://registry.example.com/api/token).
+auth:
+  token:
+    realm: http://localhost:8080/api/token
+    service: registry-ui
+    issuer: registry-ui
+    rootcertbundle: /token-keys/token-root.pem
+
 notifications:
   endpoints:
     - name: registry-ui

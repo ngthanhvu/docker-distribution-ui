@@ -54,7 +54,12 @@ export default function Repository() {
   )
 
   const publicUrl = registryRef(cfg?.registryPublicUrl ?? 'localhost:5000')
-  const pullLatest = `docker pull ${publicUrl}/${repo}:latest`
+  const tags = data?.tags ?? []
+  const exampleTag =
+    tags.find((t) => t.name === 'latest')?.name ??
+    [...tags].sort((a, b) => (b.created ?? '').localeCompare(a.created ?? ''))[0]?.name ??
+    'latest'
+  const pullCmd = `docker pull ${publicUrl}/${repo}:${exampleTag}`
 
   const confirmDelete = async () => {
     if (!toDelete) return
@@ -79,6 +84,7 @@ export default function Repository() {
         </div>
         <Link
           to="/"
+          viewTransition
           className="inline-flex select-none items-center justify-center gap-1 border border-zinc-700/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium leading-normal uppercase tracking-[0.08em] text-zinc-300 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 active:bg-zinc-700"
         >
           ← Back
@@ -93,6 +99,7 @@ export default function Repository() {
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/"
+            viewTransition
             className="inline-flex shrink-0 select-none items-center justify-center gap-1 border border-zinc-700/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium leading-normal uppercase tracking-[0.08em] text-zinc-300 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 active:bg-zinc-700"
             title="Back to repositories"
           >
@@ -111,9 +118,9 @@ export default function Repository() {
           <span className="flex min-w-0 items-center gap-2 border border-zinc-800 bg-black py-1.5 pl-3 pr-1.5">
             <span className="text-[12px] text-zinc-600">$</span>
             <code className="max-w-xs sm:max-w-md lg:max-w-lg truncate text-[12.5px] text-zinc-100">
-              {pullLatest}
+              {pullCmd}
             </code>
-            <CopyButton text={pullLatest} title="Copy pull command" />
+            <CopyButton text={pullCmd} title="Copy pull command" />
           </span>
           <TermButton onClick={load} disabled={!data}>
             Refresh
@@ -196,6 +203,7 @@ export default function Repository() {
                       >
                         <td className="whitespace-nowrap px-3.5 py-2.5 pl-4 align-middle">
                           <Link
+                            viewTransition
                             className="text-[13px] font-medium text-sky-400 transition-colors hover:text-sky-300 hover:underline"
                             to={`/repo/${repoPath(repo)}/${encodeURIComponent(tag.name)}`}
                           >
@@ -274,11 +282,11 @@ export default function Repository() {
             <CodeBlock
               lines={[
                 '# push an image to this repository',
-                `docker tag myapp:1.0 ${publicUrl}/${repo}:1.0`,
-                `docker push ${publicUrl}/${repo}:1.0`,
+                `docker tag myapp:1.0 ${publicUrl}/${repo}:${exampleTag}`,
+                `docker push ${publicUrl}/${repo}:${exampleTag}`,
                 '',
                 '# pull it back',
-                `docker pull ${publicUrl}/${repo}:1.0`,
+                pullCmd,
               ]}
             />
           </div>

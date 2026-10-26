@@ -44,6 +44,7 @@ type record struct {
 	Salt       string `json:"salt"`
 	Hash       string `json:"hash"`
 	CreatedAt  string `json:"created_at"`
+	UpdatedAt  string `json:"updated_at,omitempty"` // last password change
 }
 
 type session struct {
@@ -193,6 +194,108 @@ func (s *Store) Login(username, password, ip string, remember bool) (string, tim
 		return s.newSessionLocked(s.rec.Username, rememberTTL, rememberTTL), rememberTTL, nil
 	}
 	return s.newSessionLocked(s.rec.Username, sessionTTL, 0), 0, nil
+}
+
+// CheckCredentials verifies a username/password pair without creating a
+// web session. It backs the docker login token endpoint and shares the
+// per-IP lockout with the web login.
+func (s *Store) CheckCredentials(username, password, ip string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.disabled || s.rec == nil {
+		return ErrNotInitialized
+	}
+	if s.blockedLocked(ip) {
+		return ErrBlocked
+	}
+
+	salt, err := hex.DecodeString(s.rec.Salt)
+	if err != nil {
+		return err
+	}
+	want, err := hex.DecodeString(s.rec.Hash)
+	if err != nil {
+		return err
+	}
+	key, err := pbkdf2.Key(sha256.New, password, salt, s.rec.Iterations, keyLen)
+	if err != nil {
+		return err
+	}
+
+	userOK := subtle.ConstantTimeCompare([]byte(strings.TrimSpace(username)), []byte(s.rec.Username)) == 1
+	passOK := subtle.ConstantTimeCompare(key, want) == 1
+	if !userOK || !passOK {
+		s.recordFailLocked(ip)
+		return ErrInvalid
+	}
+	return nil
+}
+
+// ChangePassword verifies the current password, replaces it with a new one
+// and invalidates every active session. A fresh session token is returned
+// so the caller stays logged in with the new credentials.
+func (s *Store) ChangePassword(current, newPassword string) (string, time.Duration, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.disabled || s.rec == nil {
+		return "", 0, ErrNotInitialized
+	}
+
+	salt, err := hex.DecodeString(s.rec.Salt)
+	if err != nil {
+		return "", 0, err
+	}
+	want, err := hex.DecodeString(s.rec.Hash)
+	if err != nil {
+		return "", 0, err
+	}
+	key, err := pbkdf2.Key(sha256.New, current, salt, s.rec.Iterations, keyLen)
+	if err != nil {
+		return "", 0, err
+	}
+	if subtle.ConstantTimeCompare(key, want) != 1 {
+		return "", 0, ErrInvalid
+	}
+	if !ValidPassword(newPassword) {
+		return "", 0, fmt.Errorf("%w: new password must be 8-128 characters", ErrInvalid)
+	}
+
+	newSalt := make([]byte, saltSize)
+	if _, err := rand.Read(newSalt); err != nil {
+		return "", 0, err
+	}
+	newKey, err := pbkdf2.Key(sha256.New, newPassword, newSalt, iterations, keyLen)
+	if err != nil {
+		return "", 0, err
+	}
+
+	old := s.rec
+	s.rec = &record{
+		Username:   old.Username,
+		Algorithm:  "pbkdf2-sha256",
+		Iterations: iterations,
+		Salt:       hex.EncodeToString(newSalt),
+		Hash:       hex.EncodeToString(newKey),
+		CreatedAt:  old.CreatedAt,
+		UpdatedAt:  time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := s.saveLocked(); err != nil {
+		s.rec = old
+		return "", 0, err
+	}
+	s.sessions = make(map[string]*session)
+	return s.newSessionLocked(s.rec.Username, sessionTTL, sessionTTL), sessionTTL, nil
+}
+
+// AccountInfo returns the admin username plus the account creation and
+// last password change timestamps (RFC3339, empty when unknown).
+func (s *Store) AccountInfo() (username, createdAt, updatedAt string, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.disabled || s.rec == nil {
+		return "", "", "", false
+	}
+	return s.rec.Username, s.rec.CreatedAt, s.rec.UpdatedAt, true
 }
 
 // Validate checks a session token. It returns the username, the cookie

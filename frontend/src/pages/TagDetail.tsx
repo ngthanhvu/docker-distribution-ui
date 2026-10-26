@@ -49,7 +49,7 @@ export default function TagDetail() {
     setBusy(true)
     try {
       await api.deleteManifest(repo, info.digest)
-      navigate(`/repo/${repoPath(repo)}`)
+      navigate(`/repo/${repoPath(repo)}`, { viewTransition: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'delete failed')
       setBusy(false)
@@ -64,6 +64,7 @@ export default function TagDetail() {
         </div>
         <Link
           to={`/repo/${repoPath(repo)}`}
+          viewTransition
           className="inline-flex select-none items-center justify-center gap-1 border border-zinc-700/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium leading-normal uppercase tracking-[0.08em] text-zinc-300 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 active:bg-zinc-700"
         >
           ← Back
@@ -91,6 +92,7 @@ export default function TagDetail() {
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to={`/repo/${repoPath(repo)}`}
+            viewTransition
             className="inline-flex shrink-0 select-none items-center justify-center gap-1 border border-zinc-700/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium leading-normal uppercase tracking-[0.08em] text-zinc-300 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 active:bg-zinc-700"
             title="Back to repository"
           >
@@ -225,6 +227,7 @@ export default function TagDetail() {
                         >
                           <td className="px-4 py-3 align-middle">
                             <Link
+                              viewTransition
                               to={`/repo/${repoPath(repo)}/${encodeURIComponent(p.digest)}`}
                               className="inline-flex flex-wrap items-center gap-1.5"
                             >
@@ -249,6 +252,7 @@ export default function TagDetail() {
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 text-right align-middle">
                             <Link
+                              viewTransition
                               to={`/repo/${repoPath(repo)}/${encodeURIComponent(p.digest)}`}
                               aria-label="open platform manifest"
                               className="inline-flex items-center px-2 py-1.5 text-[12px] uppercase tracking-[0.08em] text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-100"

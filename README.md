@@ -93,6 +93,8 @@ Lưu ý về activity:
 | GET | `/api/auth/status` | Trạng thái auth (đã setup? đã login?) |
 | POST | `/api/auth/setup` | Tạo admin lần đầu (tự login) |
 | POST | `/api/auth/login` | Đăng nhập |
+| POST | `/api/auth/password` | Đổi mật khẩu (cần session + mật khẩu hiện tại) |
+| GET/POST | `/api/token` | Token auth cho docker login (Basic auth, public) |
 | POST | `/api/auth/logout` | Đăng xuất |
 | GET | `/api/health` | Kiểm tra registry |
 | GET | `/api/config` | Cấu hình public + version |
@@ -109,7 +111,10 @@ Biến môi trường backend: `REGISTRY_URL`, `REGISTRY_PUBLIC_URL`,
 `DATA_DIR`, `AUTH_FILE`, `AUTH_DISABLED`, `EVENT_SECRET`
 (shared secret giữa `registry/config.yml` và backend — đổi thì đổi cả hai),
 `REGISTRY_STORAGE_DIR` (mount `registry-data` read-only vào backend để có
-disk stats; bỏ mount nếu không muốn).
+disk stats; bỏ mount nếu không muốn), `TOKEN_AUTH` (bật token auth),
+`TOKEN_KEY_DIR` (thư mục key ký token, share với registry qua volume
+`token-keys`), `TOKEN_ISSUER`, `TOKEN_SERVICE` (khớp `auth.token.issuer` /
+`auth.token.service` của registry).
 
 ## Bảo mật
 
@@ -122,7 +127,11 @@ tối thiểu 8 ký tự). Các lần sau phải đăng nhập. Chi tiết:
   lưu trong volume `backend-data` (`/data/auth.json`, mode 0600)
 - Session: cookie `HttpOnly` + `SameSite=Lax`, hết hạn 7 ngày (tự gia hạn khi dùng)
 - Login sai quá 10 lần / 10 phút / IP → tạm chặn (HTTP 429)
-- Mọi API endpoint (trừ `/api/health` và `/api/auth/*`) yêu cầu session
+- Mọi API endpoint (trừ `/api/health`, `/api/auth/*`, `/api/token`) yêu cầu session
+
+Đổi mật khẩu: bấm vào **tên user** trên header để mở trang **Profile**
+(`/profile`) — xem thông tin account + form đổi mật khẩu (cần mật khẩu hiện
+tại; sau khi đổi, mọi session khác bị đăng xuất).
 
 Quên mật khẩu? Xóa file auth rồi restart backend, UI sẽ quay lại màn hình tạo tài khoản:
 
@@ -134,23 +143,32 @@ docker compose restart backend
 Tắt hẳn authentication (chỉ dùng ở môi trường tin cậy/cục bộ): uncomment
 `AUTH_DISABLED: "true"` trong `docker-compose.yml`.
 
-### Basic auth cho registry (lớp riêng, bảo vệ API :5000)
+### Registry token auth (docker login)
 
-Auth của UI chỉ bảo vệ web; clients (`docker push/pull`) nói chuyện trực tiếp với
-`:5000`. Muốn bảo vệ luôn cả registry:
+Registry được bảo vệ bằng **token auth**: `docker login/pull/push` phải xin bearer
+token từ backend (`/api/token`) bằng **chính account admin của UI**. Mỗi lần
+`docker login` (từ VPS/máy bất kỳ) được ghi vào activity feed: account, IP,
+user-agent docker — dedup 1 giờ cho cùng account+IP.
 
 ```bash
-mkdir -p registry/auth
-docker run --rm --entrypoint htpasswd httpd:2.4-alpine \
-  -Bbn admin 'MatKhauManh' > registry/auth/htpasswd
+docker login localhost:5000   # nhập user/pass admin của web UI
+docker pull localhost:5000/node:latest
 ```
 
-Bỏ comment 2 dòng `auth:` trong `registry/config.yml` và volume
-`./registry/auth` trong `docker-compose.yml`, uncomment
-`REGISTRY_USERNAME`/`REGISTRY_PASSWORD` cho backend, rồi `docker compose up -d`.
-Sau đó client phải `docker login localhost:5000` trước khi push/pull.
+Lưu ý:
 
-Với production nên đặt TLS trước registry (reverse proxy) và dùng domain.
+- Anonymous pull/push **không còn hoạt động** — đây là điểm bảo vệ registry
+  (trước đó registry mở hoàn toàn).
+- Realm trong `registry/config.yml` (`auth.token.realm`) là URL `/api/token`
+  **nhìn từ phía docker client** (client sẽ tự gọi URL này). Mặc định
+  `http://localhost:8081/api/token` (dev). Khi client ở máy khác, sửa thành
+  `http://<ip-host>:8081/api/token` hoặc `https://<domain>/api/token`
+  (đi qua reverse proxy).
+- Backend tự ký token cho riêng nó khi gọi registry API (share signing key qua
+  volume `token-keys`, sinh tự động lần đầu; JWT mang cert trong header `x5c`,
+  registry tin cert đó qua `rootcertbundle`).
+- `AUTH_DISABLED: "true"` + token auth: mọi docker login đều được chấp nhận
+  (registry mở) — chỉ dùng ở môi trường tin cậy.
 
 ## Dọn rác (garbage collection)
 

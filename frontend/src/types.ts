@@ -105,11 +105,12 @@ export interface ManifestInfo {
 export interface ActivityEvent {
   id: string
   timestamp: string
-  action: 'push' | 'pull' | 'delete' | 'mount'
+  action: 'push' | 'pull' | 'delete' | 'mount' | 'login'
   repository: string
   tag?: string
   digest?: string
   mediaType?: string
+  account?: string
   userAgent?: string
   addr?: string
 }

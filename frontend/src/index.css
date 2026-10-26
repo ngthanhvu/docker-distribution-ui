@@ -108,10 +108,35 @@
   }
 }
 
+/* ---------- route transitions (View Transitions API) ---------- */
+
+::view-transition-old(root) {
+  animation: vt-fade-out 90ms ease-in;
+}
+
+::view-transition-new(root) {
+  animation: vt-fade-in 130ms ease-out;
+}
+
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

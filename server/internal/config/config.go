@@ -20,6 +20,10 @@ type Config struct {
 	AuthDisabled      bool          // completely disable UI authentication
 	EventSecret       string        // shared secret required on POST /api/events
 	StorageRoot       string        // registry data dir mounted read-only ("" disables disk stats)
+	TokenAuth         bool          // issue registry bearer tokens (docker login flow)
+	TokenIssuer       string        // must match REGISTRY_AUTH_TOKEN_ISSUER on the registry
+	TokenService      string        // must match REGISTRY_AUTH_TOKEN_SERVICE on the registry
+	TokenKeyDir       string        // dir shared with the registry (token.key + token-root.pem)
 }
 
 func FromEnv() Config {
@@ -35,6 +39,10 @@ func FromEnv() Config {
 		EventSecret:       env("EVENT_SECRET", "dev-registry-events-secret"),
 		StorageRoot:       os.Getenv("REGISTRY_STORAGE_DIR"),
 		CacheTTL:          30 * time.Second,
+		TokenAuth:         envBool("TOKEN_AUTH", false),
+		TokenIssuer:       env("TOKEN_ISSUER", "registry-ui"),
+		TokenService:      env("TOKEN_SERVICE", "registry-ui"),
+		TokenKeyDir:       env("TOKEN_KEY_DIR", filepath.Join(dataDir, "token-keys")),
 	}
 	cfg.RegistryPublicURL = env("REGISTRY_PUBLIC_URL", cfg.RegistryURL)
 	if d, err := time.ParseDuration(env("CACHE_TTL", "30s")); err == nil {

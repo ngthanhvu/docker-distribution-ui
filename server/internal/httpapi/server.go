@@ -9,6 +9,7 @@ import (
 	"registryui/internal/auth"
 	"registryui/internal/config"
 	"registryui/internal/service"
+	"registryui/internal/tokenauth"
 )
 
 const sessionCookie = "rui_session"
@@ -18,11 +19,12 @@ type Server struct {
 	cfg     config.Config
 	svc     *service.Service
 	auth    *auth.Store
+	tokens  *tokenauth.Signer
 	version string
 }
 
-func New(cfg config.Config, svc *service.Service, authStore *auth.Store, version string) *Server {
-	return &Server{cfg: cfg, svc: svc, auth: authStore, version: version}
+func New(cfg config.Config, svc *service.Service, authStore *auth.Store, tokens *tokenauth.Signer, version string) *Server {
+	return &Server{cfg: cfg, svc: svc, auth: authStore, tokens: tokens, version: version}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -32,7 +34,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/auth/status", s.handleAuthStatus)
 	mux.HandleFunc("POST /api/auth/setup", s.handleAuthSetup)
 	mux.HandleFunc("POST /api/auth/login", s.handleAuthLogin)
+	mux.HandleFunc("POST /api/auth/password", s.handleAuthPassword)
 	mux.HandleFunc("POST /api/auth/logout", s.handleAuthLogout)
+	mux.HandleFunc("/api/token", s.handleToken) // called by docker clients (Basic auth)
 	mux.HandleFunc("POST /api/events", s.handleEvents) // called by the registry
 	mux.HandleFunc("GET /api/activity", s.handleActivity)
 	mux.HandleFunc("GET /api/storage", s.handleStorage)
@@ -59,6 +63,7 @@ var publicAPI = map[string]bool{
 	"/api/auth/setup":   true,
 	"/api/auth/login":   true,
 	"/api/auth/logout":  true,
+	"/api/token":        true, // docker clients authenticate with Basic auth
 	"/api/events":       true, // protected by the shared event secret instead
 }
 

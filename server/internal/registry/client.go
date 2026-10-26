@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"registryui/internal/tokenauth"
 )
 
 // manifestAccept lists all manifest media types we understand, so the
@@ -57,6 +59,19 @@ type Client struct {
 	hc       *http.Client
 	username string
 	password string
+
+	// tokens is non-nil when the registry uses token auth. The backend owns
+	// the signing key, so it mints its own bearer tokens (challenge-driven)
+	// instead of going through the /api/token HTTP endpoint.
+	tokens *tokenauth.Signer
+
+	tokMu    sync.Mutex
+	tokCache map[string]cachedToken
+}
+
+type cachedToken struct {
+	token   string
+	expires time.Time
 }
 
 func NewClient(baseURL, username, password string) *Client {
@@ -65,22 +80,28 @@ func NewClient(baseURL, username, password string) *Client {
 		hc:       &http.Client{Timeout: 60 * time.Second},
 		username: username,
 		password: password,
+		tokCache: map[string]cachedToken{},
 	}
 }
 
-func (c *Client) do(ctx context.Context, method, path, accept string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", accept)
-	if c.username != "" || c.password != "" {
-		req.SetBasicAuth(c.username, c.password)
-	}
+// SetTokenSigner enables registry token auth for this client.
+func (c *Client) SetTokenSigner(s *tokenauth.Signer) {
+	c.tokens = s
+}
 
-	resp, err := c.hc.Do(req)
+func (c *Client) do(ctx context.Context, method, path, accept string) (*http.Response, error) {
+	resp, err := c.send(ctx, method, path, accept, "")
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode == http.StatusUnauthorized && c.tokens != nil {
+		if tok, terr := c.bearer(challengeServiceAndScopes(resp.Header.Values("Www-Authenticate"))); terr == nil {
+			resp.Body.Close()
+			resp, err = c.send(ctx, method, path, accept, tok)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	if resp.StatusCode >= 400 {
 		defer resp.Body.Close()
@@ -101,6 +122,70 @@ func (c *Client) do(ctx context.Context, method, path, accept string) (*http.Res
 		return nil, apiErr
 	}
 	return resp, nil
+}
+
+func (c *Client) send(ctx context.Context, method, path, accept, bearer string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", accept)
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	} else if c.username != "" || c.password != "" {
+		req.SetBasicAuth(c.username, c.password)
+	}
+	return c.hc.Do(req)
+}
+
+// bearer returns a cached (or freshly minted) token granting the scopes
+// the registry asked for in its Bearer challenge.
+func (c *Client) bearer(service string, scopes []string) (string, error) {
+	key := tokenauth.ScopeKey(scopes)
+	c.tokMu.Lock()
+	if e, ok := c.tokCache[key]; ok && time.Now().Before(e.expires.Add(-time.Minute)) {
+		c.tokMu.Unlock()
+		return e.token, nil
+	}
+	c.tokMu.Unlock()
+
+	ttl := 10 * time.Minute
+	tok, err := c.tokens.Mint("registry-ui-backend", service, tokenauth.ParseScopes(scopes), ttl)
+	if err != nil {
+		return "", err
+	}
+	c.tokMu.Lock()
+	c.tokCache[key] = cachedToken{token: tok, expires: time.Now().Add(ttl)}
+	c.tokMu.Unlock()
+	return tok, nil
+}
+
+// challengeServiceAndScopes extracts the service and scope parameters from
+// a "WWW-Authenticate: Bearer realm=...,service=...,scope=..." challenge.
+func challengeServiceAndScopes(headers []string) (service string, scopes []string) {
+	for _, h := range headers {
+		if len(h) < 7 || !strings.EqualFold(h[:7], "bearer ") {
+			continue
+		}
+		for _, part := range strings.Split(h[7:], ",") {
+			kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
+			if len(kv) != 2 {
+				continue
+			}
+			val := strings.Trim(kv[1], `"`)
+			switch kv[0] {
+			case "service":
+				service = val
+			case "scope":
+				for _, sc := range strings.Fields(val) {
+					if sc != "" {
+						scopes = append(scopes, sc)
+					}
+				}
+			}
+		}
+	}
+	return service, scopes
 }
 
 // Ping checks that the registry API is reachable.
