@@ -34,6 +34,7 @@ func (s *Server) handleAPIIndex(w http.ResponseWriter, r *http.Request) {
 			"GET    /api/repositories/{name}/tags",
 			"GET    /api/repositories/{name}/manifests/{ref}",
 			"DELETE /api/repositories/{name}/manifests/{digest}",
+			"DELETE /api/repositories/{name}",
 		},
 	})
 }
@@ -99,6 +100,33 @@ func (s *Server) handleRepositories(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, sum)
+		return
+	}
+
+	if r.Method == http.MethodDelete && !strings.Contains(p, "/manifests/") {
+		name := p
+		if !nameRe.MatchString(name) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid repository name"})
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 300*time.Second)
+		defer cancel()
+		if err := s.svc.DeleteRepository(ctx, name); err != nil {
+			writeError(w, err)
+			return
+		}
+		actor := "registry-ui"
+		if user, ok := s.currentUser(r); ok && user != "" {
+			actor += "/" + user
+		}
+		s.svc.RecordEvents([]activity.Event{{
+			ID:         activity.NewID(),
+			Timestamp:  time.Now(),
+			Action:     "delete",
+			Repository: name,
+			UserAgent:  actor,
+		}})
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
 

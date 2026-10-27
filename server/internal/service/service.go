@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -214,6 +215,38 @@ func (s *Service) DeleteManifest(ctx context.Context, name, digest string) error
 	}
 	s.cache.DeletePrefix("repo:" + name)
 	s.cache.DeletePrefix("manifest:" + name + "/")
+	return nil
+}
+
+// DeleteRepository removes every manifest of a repository and deletes its
+// directory from the mounted registry storage so the repo disappears from
+// the catalog. Blob data is reclaimed later by garbage collection.
+func (s *Service) DeleteRepository(ctx context.Context, name string) error {
+	tags, err := s.client.Tags(ctx, name)
+	if err != nil {
+		return err
+	}
+	seen := make(map[string]bool, len(tags))
+	for _, tag := range tags {
+		d, err := s.client.TagDigest(ctx, name, tag)
+		if err != nil {
+			return err
+		}
+		if d == "" || seen[d] {
+			continue
+		}
+		seen[d] = true
+		if err := s.client.DeleteManifest(ctx, name, d); err != nil {
+			return err
+		}
+	}
+	s.cache.DeletePrefix("repo:" + name)
+	s.cache.DeletePrefix("manifest:" + name + "/")
+	if s.storRoot != "" {
+		if err := storage.RemoveRepository(s.storRoot, name); err != nil {
+			return fmt.Errorf("manifests deleted, but repository directory removal failed: %w", err)
+		}
+	}
 	return nil
 }
 

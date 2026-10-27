@@ -24,10 +24,13 @@ services:
       - registry-net
 
   # Go backend — talks to the registry API v2 and serves JSON to the UI.
+  # Runs as root so it can delete repository directories from the
+  # registry-data volume (delete repository feature).
   backend:
     build: ./server
     container_name: registry-backend
     restart: unless-stopped
+    user: "0:0"
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8081}:8080"
     environment:
@@ -43,7 +46,8 @@ services:
       TOKEN_KEY_DIR: /token-keys
     volumes:
       - backend-data:/data
-      - registry-data:/registry-data:ro
+      # rw: needed for "delete repository" (removes the repo directory)
+      - registry-data:/registry-data
       - token-keys:/token-keys
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/auth/status"]

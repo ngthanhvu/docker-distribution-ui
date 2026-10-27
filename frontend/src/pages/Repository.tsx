@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, useConfig } from '../api'
 import type { ActivityEvent, RepoSummary, TagInfo } from '../types'
 import { formatDate, formatSize, registryRef, shortDigest, timeAgo } from '../format'
@@ -23,12 +23,14 @@ export default function Repository() {
   const { name } = useParams()
   const repo = name ?? ''
   const cfg = useConfig()
+  const navigate = useNavigate()
 
   const [data, setData] = useState<RepoSummary | null>(null)
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [toDelete, setToDelete] = useState<TagInfo | null>(null)
+  const [confirmRepo, setConfirmRepo] = useState(false)
   const [busy, setBusy] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
@@ -72,6 +74,19 @@ export default function Repository() {
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'delete failed')
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const confirmDeleteRepo = async () => {
+    setBusy(true)
+    setDeleteError('')
+    try {
+      await api.deleteRepository(repo)
+      setConfirmRepo(false)
+      navigate('/', { viewTransition: true })
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'delete failed')
       setBusy(false)
     }
   }
@@ -122,6 +137,9 @@ export default function Repository() {
             </code>
             <CopyButton text={pullCmd} title="Copy pull command" />
           </span>
+          <TermButton danger onClick={() => setConfirmRepo(true)} disabled={!data}>
+            Delete repo
+          </TermButton>
           <TermButton onClick={load} disabled={!data}>
             Refresh
           </TermButton>
@@ -310,7 +328,22 @@ export default function Repository() {
           onClose={() => {
             if (!busy) {
               setToDelete(null)
-              setDeleteError('')
+            }
+          }}
+        />
+      )}
+      {confirmRepo && (
+        <ConfirmDialog
+          title={`Delete repository ${repo}?`}
+          message={`This deletes every tag and manifest in ${repo} and removes the repository from the catalog. Layer blobs remain on disk until the registry runs garbage collection. This cannot be undone.`}
+          confirmLabel="Delete repository"
+          busyLabel="Deleting…"
+          confirmText="delete"
+          busy={busy}
+          onConfirm={confirmDeleteRepo}
+          onClose={() => {
+            if (!busy) {
+              setConfirmRepo(false)
             }
           }}
         />

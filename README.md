@@ -105,6 +105,7 @@ Lưu ý về activity:
 | GET | `/api/repositories/{name}/tags` | Tags + digest + size + metadata |
 | GET | `/api/repositories/{name}/manifests/{ref}` | Chi tiết manifest (ref = tag hoặc digest) |
 | DELETE | `/api/repositories/{name}/manifests/{digest}` | Xóa manifest (phải dùng digest) |
+| DELETE | `/api/repositories/{name}` | Xóa cả repository (tất cả tag/manifest + thư mục repo) |
 
 Biến môi trường backend: `REGISTRY_URL`, `REGISTRY_PUBLIC_URL`,
 `REGISTRY_USERNAME`, `REGISTRY_PASSWORD`, `CACHE_TTL`, `LISTEN_ADDR`,
@@ -169,6 +170,14 @@ Lưu ý:
   registry tin cert đó qua `rootcertbundle`).
 - `AUTH_DISABLED: "true"` + token auth: mọi docker login đều được chấp nhận
   (registry mở) — chỉ dùng ở môi trường tin cậy.
+
+## Xóa repository
+
+Trang Repository có nút **DELETE REPO**: xóa mọi tag/manifest qua API rồi xóa
+hẳn thư mục repo trong storage (registry GC 2.8 không tự dọn thư mục repo
+rỗng, và catalog vẫn hiện repo chừng nào `_layers` còn). Vì volume
+`registry-data` thuộc root nên backend chạy `user: "0:0"` và mount rw để làm
+việc này. Blob layer vẫn nằm trên đĩa cho tới khi chạy GC.
 
 ## Dọn rác (garbage collection)
 

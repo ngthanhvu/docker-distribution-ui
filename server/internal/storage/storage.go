@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -16,6 +17,29 @@ type Stats struct {
 	ReclaimableBytes int64     `json:"reclaimableBytes"` // blobs not referenced by any repo (reclaimed by GC)
 	ReclaimableCount int64     `json:"reclaimableCount"`
 	ScannedAt        time.Time `json:"scannedAt"`
+}
+
+// RemoveRepository deletes a repository directory (all tag/manifest/layer
+// links) from the mounted registry storage, mirroring what the registry's
+// own vacuum does for repository removal. The blob data itself is left for
+// garbage collection to reclaim.
+func RemoveRepository(root, name string) error {
+	if root == "" {
+		return errors.New("registry storage is not mounted")
+	}
+	repoDir := filepath.Join(root, "docker", "registry", "v2", "repositories", filepath.FromSlash(name))
+	// Defensive: the resolved path must stay inside the repositories root.
+	repoRoot := filepath.Join(root, "docker", "registry", "v2", "repositories")
+	if !strings.HasPrefix(repoDir, repoRoot+string(filepath.Separator)) {
+		return errors.New("invalid repository path")
+	}
+	if _, err := os.Stat(repoDir); err != nil {
+		if os.IsNotExist(err) {
+			return nil // already gone
+		}
+		return err
+	}
+	return os.RemoveAll(repoDir)
 }
 
 // Scan walks the distribution filesystem layout:

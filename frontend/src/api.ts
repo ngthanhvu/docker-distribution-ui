@@ -80,6 +80,10 @@ export const api = {
       `/api/repositories/${encodeRepoName(name)}/manifests/${encodeURIComponent(digest)}`,
       { method: 'DELETE' },
     ),
+  deleteRepository: (name: string) =>
+    request<{ ok: boolean }>(`/api/repositories/${encodeRepoName(name)}`, {
+      method: 'DELETE',
+    }),
   activity: (n = 50, repo?: string) =>
     request<ActivityResponse>(
       `/api/activity?n=${n}${repo ? `&repo=${encodeURIComponent(repo)}` : ''}`,
