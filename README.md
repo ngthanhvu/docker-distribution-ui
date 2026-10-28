@@ -48,9 +48,15 @@ hiển thị trên UI).
 ```bash
 docker pull nginx:alpine
 docker tag nginx:alpine localhost:5000/demo/nginx:v1
+docker login localhost:5000   # nhập tài khoản admin của web UI
 docker push localhost:5000/demo/nginx:v1
 docker pull localhost:5000/demo/nginx:v1
 ```
+
+> **Pull ẩn danh**: `docker pull` không cần `docker login` — request không
+> credentials chỉ được cấp token pull (read-only). Push/delete bắt buộc
+> `docker login` với tài khoản admin (sai quá 10 lần trong 10 phút sẽ bị
+> lockout theo IP).
 
 > **Từ máy khác**: Docker chỉ cho phép HTTP thường (không TLS) với
 > `localhost`. Với registry trên IP/domain, thêm vào `/etc/docker/daemon.json`
@@ -94,7 +100,7 @@ Lưu ý về activity:
 | POST | `/api/auth/setup` | Tạo admin lần đầu (tự login) |
 | POST | `/api/auth/login` | Đăng nhập |
 | POST | `/api/auth/password` | Đổi mật khẩu (cần session + mật khẩu hiện tại) |
-| GET/POST | `/api/token` | Token auth cho docker login (Basic auth, public) |
+| GET/POST | `/api/token` | Token auth cho docker login (Basic auth, public; anonymous chỉ được pull) |
 | POST | `/api/auth/logout` | Đăng xuất |
 | GET | `/api/health` | Kiểm tra registry |
 | GET | `/api/config` | Cấu hình public + version |

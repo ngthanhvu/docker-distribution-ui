@@ -10,18 +10,10 @@ import (
 	"registryui/internal/tokenauth"
 )
 
-// tokenTTL is how long a minted bearer token stays valid. Docker clients
-// transparently request new tokens when they expire.
 const tokenTTL = 30 * time.Minute
 
-// maxScopes caps the number of scope parameters accepted in one token
-// request, so a client cannot ask for an unbounded token.
 const maxScopes = 32
 
-// handleToken implements the Distribution token auth protocol: docker
-// clients call it (with HTTP Basic credentials) after the registry answers
-// GET /v2/ with a Bearer challenge. A valid response lets docker login
-// succeed; the backend records the login in the activity feed.
 func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	if s.tokens == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "token auth is not configured"})
@@ -50,9 +42,9 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ip := clientIP(r)
+	access := tokenauth.ParseScopes(scopes)
+	anonymous := false
 	if s.auth.Disabled() {
-		// No UI account exists (AUTH_DISABLED): grant tokens freely so the
-		// registry stays usable in trusted environments.
 		if user, _, ok := r.BasicAuth(); ok && user != "" {
 			account = user
 		} else if account == "" {
@@ -61,27 +53,32 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	} else {
 		user, pass, ok := r.BasicAuth()
 		if !ok || user == "" {
-			w.Header().Set("WWW-Authenticate", `Basic realm="registry-ui"`)
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication required"})
-			return
-		}
-		if err := s.auth.CheckCredentials(user, pass, ip); err != nil {
-			w.Header().Set("WWW-Authenticate", `Basic realm="registry-ui"`)
-			if errors.Is(err, auth.ErrBlocked) {
-				writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": err.Error()})
-			} else {
-				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid username or password"})
+			if !pullOnly(access) {
+				w.Header().Set("WWW-Authenticate", `Basic realm="registry-ui"`)
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+				return
 			}
-			return
+			anonymous = true
+			account = "anonymous"
+		} else {
+			if err := s.auth.CheckCredentials(user, pass, ip); err != nil {
+				w.Header().Set("WWW-Authenticate", `Basic realm="registry-ui"`)
+				if errors.Is(err, auth.ErrBlocked) {
+					writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": err.Error()})
+				} else {
+					writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid username or password"})
+				}
+				return
+			}
+			account = user
 		}
-		account = user
 	}
 
 	audience := service
 	if audience == "" {
 		audience = s.cfg.TokenService
 	}
-	token, err := s.tokens.Mint(account, audience, tokenauth.ParseScopes(scopes), tokenTTL)
+	token, err := s.tokens.Mint(account, audience, access, tokenTTL)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to issue token"})
 		return
@@ -94,9 +91,7 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		"issued_at":  time.Now().UTC().Format(time.RFC3339),
 	})
 
-	// A token request without scopes is the docker login / session ping:
-	// record it as a login event (deduplicated by account+IP in the store).
-	if len(scopes) == 0 {
+	if len(scopes) == 0 && !anonymous {
 		s.svc.RecordEvents([]activity.Event{{
 			ID:        activity.NewID(),
 			Timestamp: time.Now().UTC(),
@@ -106,4 +101,15 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 			Addr:      ip,
 		}})
 	}
+}
+
+func pullOnly(access []tokenauth.Access) bool {
+	for _, a := range access {
+		for _, act := range a.Actions {
+			if act != "pull" {
+				return false
+			}
+		}
+	}
+	return true
 }
