@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -119,6 +120,17 @@ func (s *Service) Repo(ctx context.Context, name string) (*RepoSummary, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A repo whose manifests were all deleted still reports an empty tag
+	// list (blobs wait for garbage collection) but stays in the catalog.
+	// A repo missing from the catalog is gone: tell the UI so instead of
+	// rendering an empty repository page.
+	if len(tags) == 0 && !s.repoInCatalog(ctx, name) {
+		return nil, &registry.Error{
+			StatusCode: http.StatusNotFound,
+			Code:       "NAME_UNKNOWN",
+			Message:    "repository not found — it was deleted or never pushed",
+		}
+	}
 	sum := &RepoSummary{Name: name, TagCount: len(tags), Tags: make([]TagInfo, 0, len(tags))}
 
 	// Resolve the digest of every tag with cheap HEAD requests.
@@ -190,6 +202,25 @@ func (s *Service) Repo(ctx context.Context, name string) (*RepoSummary, error) {
 	out := *sum
 	s.mergeStats(&out.LastPush, &out.LastPull, &out.PushCount, &out.PullCount, name)
 	return &out, nil
+}
+
+// repoInCatalog reports whether the repository is still listed in the
+// registry catalog. The list is sorted, so the scan can stop early. On
+// registry errors it reports true to keep the old lenient behaviour.
+func (s *Service) repoInCatalog(ctx context.Context, name string) bool {
+	repos, err := s.client.Catalog(ctx, 100)
+	if err != nil {
+		return true
+	}
+	for _, r := range repos {
+		if r == name {
+			return true
+		}
+		if r > name {
+			break
+		}
+	}
+	return false
 }
 
 // Manifest returns the resolved manifest for a tag or digest reference.

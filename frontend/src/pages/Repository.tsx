@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, useConfig } from '../api'
+import { api, useConfig, ApiError } from '../api'
 import type { ActivityEvent, RepoSummary, TagInfo } from '../types'
 import { formatDate, formatSize, registryRef, shortDigest, timeAgo } from '../format'
 import { KindBadge, TagPlatformCell } from '../components/Badges'
@@ -28,6 +28,7 @@ export default function Repository() {
   const [data, setData] = useState<RepoSummary | null>(null)
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [error, setError] = useState('')
+  const [notFound, setNotFound] = useState(false)
   const [query, setQuery] = useState('')
   const [toDelete, setToDelete] = useState<TagInfo | null>(null)
   const [confirmRepo, setConfirmRepo] = useState(false)
@@ -37,10 +38,17 @@ export default function Repository() {
   const load = useCallback(() => {
     setData(null)
     setError('')
+    setNotFound(false)
     api
       .repo(repo)
       .then(setData)
-      .catch((err: Error) => setError(err.message))
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 404) {
+          setNotFound(true)
+        } else {
+          setError(err instanceof Error ? err.message : 'failed to load repository')
+        }
+      })
     api
       .activity(10, repo)
       .then((res) => setEvents(res.events))
@@ -89,6 +97,44 @@ export default function Repository() {
       setDeleteError(err instanceof Error ? err.message : 'delete failed')
       setBusy(false)
     }
+  }
+
+  if (notFound) {
+    return (
+      <div>
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link
+              to="/"
+              viewTransition
+              className="inline-flex shrink-0 select-none items-center justify-center gap-1 border border-zinc-700/80 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium leading-normal uppercase tracking-[0.08em] text-zinc-300 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 active:bg-zinc-700"
+              title="Back to repositories"
+            >
+              ← Back
+            </Link>
+            <div className="min-w-0">
+              <h1 className="m-0 break-all text-xl font-bold tracking-tight text-white">
+                {repo}
+              </h1>
+              <p className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-zinc-500">
+                not found · deleted or never pushed
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="mb-4 border border-zinc-700/60 bg-zinc-900/60 px-4 py-3 text-[12.5px] text-zinc-400">
+          This repository does not exist in the registry anymore. Layer blobs are reclaimed by
+          garbage collection. Recorded activity is preserved below.
+        </div>
+        <div className="border border-zinc-800 bg-zinc-950 p-4">
+          <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
+            <ActivityIcon size={13} className="text-amber-400" />
+            Activity
+          </h3>
+          <ActivityFeed events={events} showRepo={false} />
+        </div>
+      </div>
+    )
   }
 
   if (error) {
