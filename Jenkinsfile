@@ -1,92 +1,189 @@
+
 pipeline {
     agent any
 
     options {
         disableConcurrentBuilds()
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
+        timestamps()
     }
 
     parameters {
-        string(name: 'TAG', defaultValue: 'latest', description: 'Tag cho 2 image (ví dụ: v1.0.0 hoặc latest)')
+        string(
+            name: 'TAG',
+            defaultValue: 'latest',
+            description: 'Docker image tag'
+        )
     }
 
     environment {
         GITHUB_URL     = 'https://github.com/ngthanhvu/docker-distribution-ui.git'
         DOCKERHUB_USER = 'ngthanhvu'
         CREDENTIALS_ID = 'dockerhub-credentials'
-        TAG            = "${params.TAG ?: 'latest'}"
+
+        PLATFORMS      = 'linux/amd64,linux/arm64'
+        BUILDER_NAME   = 'registry-multiarch'
+        TAG            = "${params.TAG}"
     }
 
     stages {
 
-        stage('1. Checkout source code') {
+        stage('1. Validate & Checkout') {
             steps {
+                script {
+                    if (!(env.TAG ==~ /^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$/)) {
+                        error('Invalid Docker tag')
+                    }
+                }
+
                 echo """
-                ------------------------------------------------------------
-                🚀 Build & push image lên Docker Hub:
-                    - Backend:  ${DOCKERHUB_USER}/registry-ui-backend:${TAG}
-                    - Frontend: ${DOCKERHUB_USER}/registry-ui-frontend:${TAG}
-                    - Source:   ${GITHUB_URL}
-                ------------------------------------------------------------
+                ============================================
+                Docker Multi-Platform Build
+                ============================================
+                Backend  : ${DOCKERHUB_USER}/registry-ui-backend:${TAG}
+                Frontend : ${DOCKERHUB_USER}/registry-ui-frontend:${TAG}
+                Platforms: ${PLATFORMS}
+                ============================================
                 """
-                // Dùng step checkout chuẩn của Jenkins:
-                // Nếu job cấu hình "Pipeline script from SCM" thì scm đã có sẵn.
-                // Nếu job là Pipeline script rời thì tự pull từ repo về workspace hiện tại.
+
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: '*/main']],
-                    doGenerateSubmoduleConfigurations: false,
-                    extensions: [[$class: 'CleanBeforeCheckout']],
-                    userRemoteConfigs: [[url: env.GITHUB_URL]]
+                    extensions: [
+                        [$class: 'CleanBeforeCheckout']
+                    ],
+                    userRemoteConfigs: [
+                        [url: env.GITHUB_URL]
+                    ]
                 ])
             }
         }
 
-        stage('2. Login Docker Hub') {
+        stage('2. Docker Buildx Setup') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId:    env.CREDENTIALS_ID,
-                    usernameVariable: 'HUB_USER',
-                    passwordVariable: 'HUB_PASS'
-                )]) {
-                    sh 'echo "$HUB_PASS" | docker login -u "$HUB_USER" --password-stdin'
+                sh '''
+                    set -eu
+
+                    docker version
+                    docker buildx version
+
+                    if ! docker buildx inspect "$BUILDER_NAME" >/dev/null 2>&1; then
+                        docker buildx create \
+                            --name "$BUILDER_NAME" \
+                            --driver docker-container
+                    fi
+
+                    docker buildx inspect \
+                        --builder "$BUILDER_NAME" \
+                        --bootstrap
+
+                    echo "Checking supported platforms..."
+
+                    docker buildx inspect \
+                        --builder "$BUILDER_NAME"
+                '''
+            }
+        }
+
+        stage('3. Login Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: env.CREDENTIALS_ID,
+                        usernameVariable: 'HUB_USER',
+                        passwordVariable: 'HUB_PASS'
+                    )
+                ]) {
+                    sh '''
+                        set +x
+                        printf '%s' "$HUB_PASS" |
+                            docker login \
+                                --username "$HUB_USER" \
+                                --password-stdin
+                    '''
                 }
             }
         }
 
-        stage('3. Build 2 images') {
+        stage('4. Build & Push Backend') {
             steps {
-                echo '📦 Build backend (Go)...'
-                sh "docker build -t '${env.DOCKERHUB_USER}/registry-ui-backend:${env.TAG}' ./server"
-                echo '📦 Build frontend (React)...'
-                sh "docker build -t '${env.DOCKERHUB_USER}/registry-ui-frontend:${env.TAG}' ./frontend"
+                echo 'Building Go backend for AMD64 + ARM64...'
+
+                sh '''
+                    docker buildx build \
+                        --builder "$BUILDER_NAME" \
+                        --platform "$PLATFORMS" \
+                        --tag "$DOCKERHUB_USER/registry-ui-backend:$TAG" \
+                        --push \
+                        ./server
+                '''
             }
         }
 
-        stage('4. Push lên Docker Hub') {
+        stage('5. Build & Push Frontend') {
             steps {
-                echo '⬆️ Push backend...'
-                sh "docker push '${env.DOCKERHUB_USER}/registry-ui-backend:${env.TAG}'"
-                echo '⬆️ Push frontend...'
-                sh "docker push '${env.DOCKERHUB_USER}/registry-ui-frontend:${env.TAG}'"
+                echo 'Building React frontend for AMD64 + ARM64...'
+
+                sh '''
+                    docker buildx build \
+                        --builder "$BUILDER_NAME" \
+                        --platform "$PLATFORMS" \
+                        --tag "$DOCKERHUB_USER/registry-ui-frontend:$TAG" \
+                        --push \
+                        ./frontend
+                '''
+            }
+        }
+
+        stage('6. Verify Multi-Architecture Images') {
+            steps {
+                sh '''
+                    set -eu
+
+                    echo "Verify backend:"
+                    docker buildx imagetools inspect \
+                        "$DOCKERHUB_USER/registry-ui-backend:$TAG"
+
+                    echo "Verify frontend:"
+                    docker buildx imagetools inspect \
+                        "$DOCKERHUB_USER/registry-ui-frontend:$TAG"
+                '''
             }
         }
     }
 
     post {
         always {
-            echo '🧹 Clear build cache & logout...'
-            sh 'docker builder prune -af || true'
-            // Xóa image vừa build để tránh đầy ổ đĩa Jenkins server
-            sh "docker rmi '${env.DOCKERHUB_USER}/registry-ui-backend:${env.TAG}' '${env.DOCKERHUB_USER}/registry-ui-frontend:${env.TAG}' || true"
+            echo 'Cleaning workspace and Docker credentials...'
+
             sh 'docker logout || true'
-            cleanWs() // Dọn dẹp workspace sạch sẽ
+
+            // Keep Buildx cache for faster subsequent builds.
+            // Do not prune the entire Docker builder cache.
+
+            cleanWs()
         }
+
         success {
-            echo "✅ HOÀN TẤT! Đã đẩy lên Docker Hub: ${env.DOCKERHUB_USER}/registry-ui-backend:${env.TAG} & ${env.DOCKERHUB_USER}/registry-ui-frontend:${env.TAG}"
+            echo """
+            ============================================
+            BUILD SUCCESSFUL
+
+            Backend:
+            ${DOCKERHUB_USER}/registry-ui-backend:${TAG}
+
+            Frontend:
+            ${DOCKERHUB_USER}/registry-ui-frontend:${TAG}
+
+            Architectures:
+            - linux/amd64
+            - linux/arm64
+            ============================================
+            """
         }
+
         failure {
-            echo '❌ Build thất bại — xem log chi tiết phía trên.'
+            echo 'Multi-architecture build failed. Check logs.'
         }
     }
 }
