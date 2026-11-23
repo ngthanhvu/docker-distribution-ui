@@ -210,8 +210,8 @@ Frontend (hot reload, proxy `/api` sang :8080):
 
 ```bash
 cd frontend
-npm install
-npm run dev   # http://localhost:5173
+bun install
+bun run dev   # http://localhost:5173
 ```
 
 Cấu trúc project:

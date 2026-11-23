@@ -5,19 +5,15 @@ interface IconProps {
 
 export function Logo({ size = 22, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden className={className}>
-      <path
-        d="M16 3.5l11 6.2v12.6l-11 6.2-11-6.2V9.7l11-6.2z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M16 3.5v12.7m0 0l11-6.3M16 16.2L5 9.9"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
+    <svg
+      width={size}
+      height={(size * 754.66) / 1251.74}
+      viewBox="0 0 1251.74 754.66"
+      fill="currentColor"
+      aria-hidden
+      className={className}
+    >
+      <path d="M1077.76 0c-75.81 0-137.27 61.46-137.27 137.27C940.48 61.46 879.02 0 803.21 0H629.23v110.51c0 84.77 68.72 153.49 153.49 153.49h86.97v82.26h-84.37c-131.59 0-238.28-106.66-238.28-238.25V0H223.46C100.04 0 0 100.03 0 223.43v307.8c0 123.4 100.04 223.43 223.46 223.43h561.87c123.42 0 223.46-100.03 223.46-223.43V264h89.46c84.77 0 153.49-68.72 153.49-153.49V0h-173.98z" />
     </svg>
   )
 }
